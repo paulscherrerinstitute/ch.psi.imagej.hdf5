@@ -1,0 +1,91 @@
+<project name="ImageJ-HDF Plugin" default="dist" basedir=".">
+    <description>
+        "Build file for ImageJ-HDF Plugin"
+    </description>
+  <!-- set global properties for this build -->
+  <property name="src" location="src"/>
+  <property name="build" location="build"/>
+  <property name="dist"  location="dist"/>
+  <property environment="env"/>
+
+  <!-- set class path properties for this build -->
+  <path id="project.class.path">
+    <pathelement path="${classpath}"/>
+    <fileset dir="hdf-java">
+      <include name="**/*.jar"/>
+    </fileset>
+    <filelist refid="third-party_jars"/>
+  </path>
+
+  <!-- Set the path for the hdf-java library -->
+  <path id="lib.hdf.path">
+    <fileset dir="hdf-java" includes="*.jar"/>
+  </path>
+  
+  <!-- Check if IJCLASSPATH is set -->
+  <fail message="You have to set $IJCLASSPATH / %IJCLASSPATH% before
+		 running Ant!">
+    <condition>
+      <equals arg1="${env.IJCLASSPATH}" arg2=""/>
+    </condition>
+  </fail>
+
+  <target name="init">
+    <!-- Create the time stamp -->
+    <tstamp/>
+    <!-- Create the build directory structure used by compile -->
+    <mkdir dir="${build}"/>
+  </target>
+
+  <!-- Compile the java code -->
+  <target name="compile" depends="init"
+          description="compile the source " >
+    <!-- Compile the java code from ${src} into ${build} -->
+    <javac 
+       srcdir="${src}" 
+       destdir="${build}"
+       source="1.6"
+       target="1.6"
+       classpath="${toString:lib.hdf.path}:${env.IJCLASSPATH}">
+      <compilerarg value="-Xlint:all -deprecation"/>
+    </javac>
+  </target>
+
+  <!-- Build the plugin jar file -->
+  <target name="buildjar" depends="compile"
+          description="generate the distribution" >
+    <!-- Create the distribution directory -->
+    <mkdir dir="${dist}/plugins"/>
+    <!-- Put everything in one jar file -->
+    <jar jarfile="${dist}/plugins/imagej-hdf-${DSTAMP}_.jar">
+      <fileset dir="" includes="plugins.config,README"/>
+      <fileset dir="${build}" includes="*.class"/>
+      <zipgroupfileset dir="hdf-java" includes="*.jar" /> 
+    </jar>
+  </target>
+
+  <!-- Create on zip file including all libraries -->
+  <target name="dist" depends="buildjar"
+          description="generate the distribution" >
+    <!-- Copy the c libraries to the distribution directory -->
+    <copy todir="${dist}/lib">
+      <fileset dir="hdf-java/lib">
+	<Exclude name="**/*.java"/>
+      </fileset>
+    </copy>
+    <!-- zip everything in one file -->
+    <zip zipfile="${dist}/imagej-hdf-${DSTAMP}.zip">
+      <fileset dir="" includes="README"/>
+      <fileset dir="${dist}"/>
+    </zip>
+  </target>
+
+  <!-- Clean everything -->
+  <target name="clean"
+          description="clean up" >
+    <!-- Delete the ${build} and ${dist} directory trees -->
+    <delete dir="${build}"/>
+    <delete dir="${dist}"/>
+  </target>
+
+</project>
