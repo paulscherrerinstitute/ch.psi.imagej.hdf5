@@ -19,15 +19,9 @@
 
 import ij.*;
 import ij.io.*;
-import ij.plugin.*;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.*;
 import ij.gui.*;
-import java.awt.*;
-import java.lang.Math;
-
-import java.io.IOException;
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -37,7 +31,6 @@ import javax.swing.tree.DefaultMutableTreeNode;
 import ncsa.hdf.object.*; // the common object package
 import ncsa.hdf.object.h5.*; // the HDF5 implementation
 import ncsa.hdf.hdf5lib.exceptions.HDF5Exception;
-import ncsa.hdf.hdflib.HDFException;
 
 public class HDF5_Writer_ implements PlugInFilter
 {

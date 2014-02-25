@@ -17,14 +17,10 @@
  *=========================================================================*/
 
 
-import ij.IJ;
 import ij.Prefs;
 import ij.gui.GenericDialog;
 import ij.plugin.PlugIn;
 import java.util.regex.*;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
 import java.lang.String;
 
 

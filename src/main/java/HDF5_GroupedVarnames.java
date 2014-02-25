@@ -16,9 +16,6 @@
  *
  *=========================================================================*/
 
-import ij.IJ;
-import ij.Prefs;
-import ij.plugin.PlugIn;
 import java.util.regex.*;
 import java.util.ArrayList;
 import java.util.Arrays;

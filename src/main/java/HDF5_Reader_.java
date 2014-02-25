@@ -32,10 +32,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-// for scrollbar
 import java.awt.*;
-import java.awt.image.*;
-import java.io.*;
 
 import ncsa.hdf.object.*; // the common object package
 import ncsa.hdf.object.h5.*; // the HDF5 implementation
