@@ -24,9 +24,5 @@
 			<attribute name="maven.pomderived" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="hdf-java/jhdf.jar"/>
-	<classpathentry kind="lib" path="hdf-java/jhdf5.jar"/>
-	<classpathentry kind="lib" path="hdf-java/jhdf5obj.jar"/>
-	<classpathentry kind="lib" path="hdf-java/jhdfobj.jar"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>

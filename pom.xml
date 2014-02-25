@@ -12,8 +12,37 @@
 			<version>1.46</version>
 			<scope>provided</scope>
 		</dependency>
+		
+		<dependency>
+			<groupId>hdf5</groupId>
+			<artifactId>jhdf</artifactId>
+			<version>1.0.0</version>
+			<!-- <scope>system</scope>
+			<systemPath>${project.basedir}/hdf-java/jhdf.jar</systemPath> -->
+		</dependency>
+		<dependency>
+			<groupId>hdf5</groupId>
+			<artifactId>jhdfobj</artifactId>
+			<version>1.0.0</version>
+			<!-- <scope>system</scope>
+			<systemPath>${project.basedir}/hdf-java/jhdfobj.jar</systemPath> -->
+		</dependency>
+		<dependency>
+			<groupId>hdf5</groupId>
+			<artifactId>jhdf5</artifactId>
+			<version>1.0.0</version>
+			<!-- <scope>system</scope>
+			<systemPath>${project.basedir}/hdf-java/jhdf5.jar</systemPath> -->
+		</dependency>
+		<dependency>
+			<groupId>hdf5</groupId>
+			<artifactId>jhdf5obj</artifactId>
+			<version>1.0.0</version>
+			<!-- <scope>system</scope>
+			<systemPath>${project.basedir}/hdf-java/jhdf5obj.jar</systemPath> -->
+		</dependency>
 	</dependencies>
-	
+
 	<build>
 		<plugins>
 			<plugin>

@@ -35,7 +35,7 @@ import ncsa.hdf.object.*; // the common object package
 import ncsa.hdf.object.h5.*; // the HDF5 implementation
 import ncsa.hdf.hdf5lib.exceptions.HDF5Exception;
 
-public class HDF5_Writer_ implements PlugInFilter {
+public class HDF5Writer implements PlugInFilter {
 	private Boolean _batchMode = false;
 	private String _batchFileName = null;
 
@@ -156,7 +156,7 @@ public class HDF5_Writer_ implements PlugInFilter {
 
 				if (splitChannels) {
 					// parse format string
-					String[] formatTokens = HDF5_GroupedVarnames.parseFormatString(formatString, "[0-9]+"); // dummy
+					String[] formatTokens = HDF5GroupedVarnames.parseFormatString(formatString, "[0-9]+"); // dummy
 																											// regexp
 					long[] channelDims = null;
 					if (nLevs > 1) {

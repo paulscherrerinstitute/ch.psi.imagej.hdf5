@@ -6,7 +6,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
-public class HDF5_GroupedVarnames {
+public class HDF5GroupedVarnames {
 	
 	private final List<String> matchedVarNames = new ArrayList<String>();
 	private final List<String> unMatchedVarNames = new ArrayList<String>();

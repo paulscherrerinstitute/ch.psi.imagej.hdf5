@@ -6,7 +6,7 @@ import ij.plugin.PlugIn;
 import java.util.regex.*;
 import java.lang.String;
 
-public class HDF5_Config implements PlugIn {
+public class HDF5Config implements PlugIn {
 
 	public void run(String arg) {
 		// set default values
@@ -74,7 +74,7 @@ public class HDF5_Config implements PlugIn {
 		// dollarRegexpForGrouping);
 
 		try {
-			String[] formatTokens = HDF5_GroupedVarnames.parseFormatString(groupVarsByNameFormat, dollarRegexpForGrouping);
+			String[] formatTokens = HDF5GroupedVarnames.parseFormatString(groupVarsByNameFormat, dollarRegexpForGrouping);
 			for (int i = 0; i < formatTokens.length; i++) {
 				System.out.println("tok " + Integer.toString(i) + " : " + formatTokens[i]);
 			}
