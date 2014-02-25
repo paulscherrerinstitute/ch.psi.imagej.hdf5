@@ -13,4 +13,21 @@
 			<scope>provided</scope>
 		</dependency>
 	</dependencies>
+	
+	<build>
+		<plugins>
+			<plugin>
+				<artifactId>maven-assembly-plugin</artifactId>
+				<version>2.4</version>
+				<configuration>
+					<finalName>HDF5_Viewer-${pom.version}</finalName>
+					<appendAssemblyId>false</appendAssemblyId>
+					<archive />
+					<descriptorRefs>
+						<descriptorRef>jar-with-dependencies</descriptorRef>
+					</descriptorRefs>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
 </project>
