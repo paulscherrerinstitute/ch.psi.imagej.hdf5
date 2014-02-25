@@ -1,3 +1,4 @@
+package ch.psi.imagej.hdf5;
 /* =========================================================================
  * 
  *  Copyright 2011 Matthias Schlachter
