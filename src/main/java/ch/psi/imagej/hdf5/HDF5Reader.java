@@ -44,6 +44,11 @@ import ncsa.hdf.hdf5lib.exceptions.HDF5Exception;
 public class HDF5Reader implements PlugIn {
 	
 	
+	public static void main(String[] args){
+		HDF5Reader r = new HDF5Reader();
+		r.run("");
+	}
+	
 	private static final Logger logger = Logger.getLogger(HDF5Reader.class.getName());
 	
 	public void run(String arg) {

@@ -15,27 +15,6 @@
 
 		<dependency>
 			<groupId>hdf5</groupId>
-			<artifactId>jhdf</artifactId>
-			<version>1.0.0</version>
-		</dependency>
-		<dependency>
-			<groupId>hdf5</groupId>
-			<artifactId>jhdfobj</artifactId>
-			<version>1.0.0</version>
-		</dependency>
-		<dependency>
-			<groupId>hdf5</groupId>
-			<artifactId>jhdf5</artifactId>
-			<version>1.0.0</version>
-		</dependency>
-		<dependency>
-			<groupId>hdf5</groupId>
-			<artifactId>jhdf5obj</artifactId>
-			<version>1.0.0</version>
-		</dependency>
-		
-		<!-- <dependency>
-			<groupId>hdf5</groupId>
 			<artifactId>hdf</artifactId>
 			<version>2.10.0</version>
 		</dependency>
@@ -53,7 +32,13 @@
 			<groupId>hdf5</groupId>
 			<artifactId>hdf5obj</artifactId>
 			<version>2.10.0</version>
-		</dependency> -->
+		</dependency>
+		<!-- The HDF5 libraries -->
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+			<version>1.7.6</version>
+		</dependency>
 	</dependencies>
 
 	<build>
