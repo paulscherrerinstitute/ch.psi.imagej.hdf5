@@ -32,16 +32,20 @@ import ij.process.ImageProcessor;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.awt.*;
 
-import ncsa.hdf.object.*; // the common object package
-import ncsa.hdf.object.h5.*; // the HDF5 implementation
+import ncsa.hdf.object.*;
+import ncsa.hdf.object.h5.*;
 import ncsa.hdf.hdf5lib.exceptions.HDF5Exception;
-import ncsa.hdf.hdflib.HDFException;
 
 public class HDF5Reader implements PlugIn {
+	
+	
+	private static final Logger logger = Logger.getLogger(HDF5Reader.class.getName());
+	
 	public void run(String arg) {
 		// make sure default values for config are written
 		// HDF5_Config.setDefaultsIfNoValueExists();
@@ -91,8 +95,8 @@ public class HDF5Reader implements PlugIn {
 			/*-------------------------------------------------------------------
 			 *  read HDF5_Config prefs
 			 *-------------------------------------------------------------------*/
-			boolean groupVarsByName = Boolean.getBoolean(HDF5Config.getDefaultValue("HDF5.groupVarsByName"));
-			groupVarsByName = Prefs.get("HDF5.groupVarsByName", groupVarsByName);
+			boolean groupVarsByName = Boolean.getBoolean(HDF5Config.getDefaultValue(HDF5Config.GROUP_VARS_BY_NAME));
+			groupVarsByName = Prefs.get(HDF5Config.GROUP_VARS_BY_NAME, groupVarsByName);
 
 			boolean showUnmatchedDataSetNames = Boolean.getBoolean(HDF5Config.getDefaultValue("HDF5.showUnmatchedDataSetNames"));
 			showUnmatchedDataSetNames = Prefs.get("HDF5.showUnmatchedDataSetNames", showUnmatchedDataSetNames);
@@ -385,6 +389,13 @@ public class HDF5Reader implements PlugIn {
 				}
 
 			} else if (varList.size() > 1000) {
+				
+				System.out.println("#######");
+				for(Dataset d: varList){
+					System.out.println(d.getFullName());
+				}
+				System.out.println("#######");
+				
 				/*-----------------------------------------------------------------
 				 *  FIXME: quick an dirty hack for files with more than 1000
 				 *  datasets
@@ -784,7 +795,7 @@ public class HDF5Reader implements PlugIn {
 					System.out.println("   Element-Size in um (level,row,col): " + elem_sizes[0] + ", " + elem_sizes[1] + ", " + elem_sizes[2]);
 
 					// nice gadget to update the progress bar
-					long progressDivisor = extent[0] / progressSteps;
+					long progressDivisor = extent[0] / 50; // we assume 50 process steps
 					if (progressDivisor < 1)
 						progressDivisor = 1;
 
@@ -1689,21 +1700,8 @@ public class HDF5Reader implements PlugIn {
 				}
 			}
 
-		} catch (java.io.IOException err) {
-			System.err.println("Error while opening '" + directory + name + "'");
-			System.err.println(err);
-			IJ.showStatus("Error opening file.");
-		} catch (HDFException err) {
-			System.err.println("Error while opening '" + directory + name + "'");
-			System.err.println(err);
-			IJ.showStatus("Error opening file.");
-		} catch (HDF5Exception err) {
-			System.err.println("Error while opening '" + directory + name + "'");
-			System.err.println(err);
-			IJ.showStatus("Error opening file.");
-		} catch (Exception err) {
-			System.err.println("Error while opening '" + directory + name + "'");
-			System.err.println(err);
+		} catch (Exception e) {
+			logger.log(Level.WARNING, "Error while opening '" + directory + name + "'", e);
 			IJ.showStatus("Error opening file.");
 		} catch (OutOfMemoryError o) {
 			IJ.outOfMemory("Load HDF5");
@@ -1722,18 +1720,7 @@ public class HDF5Reader implements PlugIn {
 		IJ.showProgress(1.0);
 	}
 
-	// int byteToUnsignedByte(int n)
-	// {
-	// if (n < 0)
-	// return (256 + n);
-	// return n;
-	// }
-
-	private int progressSteps = 50;
-
-	/*-----------------------------------------------------------------------
-	 *  helpers for hdf5 library
-	 *-----------------------------------------------------------------------*/
+	
 	private static List<Dataset> getDataSetList(Group g, List<Dataset> datasets) throws Exception {
 		if (g == null){
 			return datasets;
@@ -1744,7 +1731,6 @@ public class HDF5Reader implements PlugIn {
 			if (obj instanceof Dataset) {
 				((Dataset) obj).init();
 				datasets.add((Dataset) obj);
-				// System.out.println(obj.getFullName());
 			} else if (obj instanceof Group) {
 				datasets = (getDataSetList((Group) obj, datasets));
 			}
@@ -1752,9 +1738,11 @@ public class HDF5Reader implements PlugIn {
 		return datasets;
 	}
 
+	
 	private static List<Attribute> getAttrList(HObject ds) throws Exception {
-		if (ds == null)
+		if (ds == null){
 			return null;
+		}
 
 		List<Attribute> attributes = new ArrayList<Attribute>();
 		List<?> members = ds.getMetadata();
@@ -1763,48 +1751,39 @@ public class HDF5Reader implements PlugIn {
 		for (int i = 0; i < n; i++) {
 			obj = (Metadata) members.get(i);
 			if (obj instanceof Attribute) {
-				try {
-					System.out.println(((Attribute) obj).getName());
 					attributes.add((Attribute) obj);
-				} catch (java.lang.UnsupportedOperationException e) {
-					System.out.println("Caught UnsupportedOperationException datasets2.add((Dataset) obj)");
-					System.out.println(e.getMessage());
-				}
 			}
 		}
 		return attributes;
 	}
 
+	
 	private static Attribute getAttribute(Dataset ds, String attrName) throws Exception {
-		List<Attribute> attrList = getAttrList((HObject) ds);
-		Iterator<Attribute> attrIter = attrList.iterator();
-
-		while (attrIter.hasNext()) {
-			Attribute attr = attrIter.next();
-			if (attr.getName().equals(attrName)) {
-				return attr;
+		for(Attribute a: getAttrList((HObject) ds)){
+			if (a.getName().equals(attrName)) {
+				return a;
 			}
 		}
 		return null;
 	}
 
+	
 	private static Attribute getAttribute(HObject ds, String attrName) throws Exception {
-		List<Attribute> attrList = getAttrList(ds);
-		Iterator<Attribute> attrIter = attrList.iterator();
-
-		while (attrIter.hasNext()) {
-			Attribute attr = attrIter.next();
-			System.out.println(attr.getName());
-			if (attr.getName().equals(attrName)) {
-				return attr;
+		for(Attribute a: getAttrList(ds)){
+			if (a.getName().equals(attrName)) {
+				return a;
 			}
 		}
 		return null;
 	}
 
-	/*-----------------------------------------------------------------------
-	 *  minmax of array
-	 *-----------------------------------------------------------------------*/
+	
+	/**
+	 * Find min and maximum of array
+	 * @param data
+	 * @param stackSize
+	 * @return
+	 */
 	private double[] getMinMax(Object data, long stackSize) {
 		double[] minmax = new double[2];
 
@@ -1879,13 +1858,11 @@ public class HDF5Reader implements PlugIn {
 					minmax[1] = tmp[i];
 			}
 		}
-		System.out.println("min: " + minmax[0] + ", max: " + minmax[1]);
+		logger.info("min: " + minmax[0] + ", max: " + minmax[1]);
 		return minmax;
 	}
 
-	/*-----------------------------------------------------------------------
-	 *  converter functions
-	 *-----------------------------------------------------------------------*/
+	
 	private float[] convertDoubleToFloat(double[] dataIn) {
 		float[] dataOut = new float[dataIn.length];
 		for (int index = 0; index < dataIn.length; index++) {
@@ -1894,6 +1871,7 @@ public class HDF5Reader implements PlugIn {
 		return dataOut;
 	}
 
+	
 	private float[] convertInt32ToFloat(int[] dataIn) {
 		float[] dataOut = new float[dataIn.length];
 		for (int index = 0; index < dataIn.length; index++) {
@@ -1902,6 +1880,7 @@ public class HDF5Reader implements PlugIn {
 		return dataOut;
 	}
 
+	
 	private short[] convertInt32ToShort(int[] dataIn) {
 		short[] dataOut = new short[dataIn.length];
 		for (int index = 0; index < dataIn.length; index++) {
@@ -1910,6 +1889,7 @@ public class HDF5Reader implements PlugIn {
 		return dataOut;
 	}
 
+	
 	private float[] convertInt64ToFloat(long[] dataIn) {
 		float[] dataOut = new float[dataIn.length];
 		for (int index = 0; index < dataIn.length; index++) {
@@ -1918,6 +1898,7 @@ public class HDF5Reader implements PlugIn {
 		return dataOut;
 	}
 
+	
 	private short[] convertInt64ToShort(long[] dataIn) {
 		short[] dataOut = new short[dataIn.length];
 		for (int index = 0; index < dataIn.length; index++) {
@@ -1925,6 +1906,7 @@ public class HDF5Reader implements PlugIn {
 		}
 		return dataOut;
 	}
+
 
 	private Object convertToUnsigned(Object dataIn, int unsignedConvSelec) {
 		Object dataOut = null;
@@ -1951,10 +1933,8 @@ public class HDF5Reader implements PlugIn {
 		return dataOut;
 	}
 
-	/*-----------------------------------------------------------------------
-	 *  extract subarrays
-	 *-----------------------------------------------------------------------*/
-	Object extractSubarray(Object data, long startIdx, long numElements) {
+
+	private Object extractSubarray(Object data, long startIdx, long numElements) {
 		Object subarray = null;
 
 		if (data instanceof byte[]) {

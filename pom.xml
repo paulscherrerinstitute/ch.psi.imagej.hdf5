@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>ch.psi</groupId>
 	<artifactId>imagej.hdf5</artifactId>
-	<version>0.0.1</version>
+	<version>0.2.0</version>
 
 	<dependencies>
 		<dependency>
@@ -12,39 +12,61 @@
 			<version>1.46</version>
 			<scope>provided</scope>
 		</dependency>
-		
+
 		<dependency>
 			<groupId>hdf5</groupId>
 			<artifactId>jhdf</artifactId>
 			<version>1.0.0</version>
-			<!-- <scope>system</scope>
-			<systemPath>${project.basedir}/hdf-java/jhdf.jar</systemPath> -->
 		</dependency>
 		<dependency>
 			<groupId>hdf5</groupId>
 			<artifactId>jhdfobj</artifactId>
 			<version>1.0.0</version>
-			<!-- <scope>system</scope>
-			<systemPath>${project.basedir}/hdf-java/jhdfobj.jar</systemPath> -->
 		</dependency>
 		<dependency>
 			<groupId>hdf5</groupId>
 			<artifactId>jhdf5</artifactId>
 			<version>1.0.0</version>
-			<!-- <scope>system</scope>
-			<systemPath>${project.basedir}/hdf-java/jhdf5.jar</systemPath> -->
 		</dependency>
 		<dependency>
 			<groupId>hdf5</groupId>
 			<artifactId>jhdf5obj</artifactId>
 			<version>1.0.0</version>
-			<!-- <scope>system</scope>
-			<systemPath>${project.basedir}/hdf-java/jhdf5obj.jar</systemPath> -->
 		</dependency>
+		
+		<!-- <dependency>
+			<groupId>hdf5</groupId>
+			<artifactId>hdf</artifactId>
+			<version>2.10.0</version>
+		</dependency>
+		<dependency>
+			<groupId>hdf5</groupId>
+			<artifactId>hdfobj</artifactId>
+			<version>2.10.0</version>
+		</dependency>
+		<dependency>
+			<groupId>hdf5</groupId>
+			<artifactId>hdf5</artifactId>
+			<version>2.10.0</version>
+		</dependency>
+		<dependency>
+			<groupId>hdf5</groupId>
+			<artifactId>hdf5obj</artifactId>
+			<version>2.10.0</version>
+		</dependency> -->
 	</dependencies>
 
 	<build>
 		<plugins>
+			<plugin>
+				<artifactId>maven-compiler-plugin</artifactId>
+				<version>2.3.2</version>
+				<configuration>
+					<encoding>UTF-8</encoding>
+					<source>1.7</source>
+					<target>1.7</target>
+				</configuration>
+			</plugin>
 			<plugin>
 				<artifactId>maven-assembly-plugin</artifactId>
 				<version>2.4</version>

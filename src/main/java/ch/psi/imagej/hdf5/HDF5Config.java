@@ -8,12 +8,14 @@ import java.lang.String;
 
 public class HDF5Config implements PlugIn {
 
+	public static String GROUP_VARS_BY_NAME = "HDF5.groupVarsByName";
+	
 	public void run(String arg) {
 		// set default values
 		setDefaultsIfNoValueExists();
 		// read ImageJ Preferences
-		boolean groupVarsByName = Boolean.getBoolean(getDefaultValue("HDF5.groupVarsByName"));
-		groupVarsByName = Prefs.get("HDF5.groupVarsByName", groupVarsByName);
+		boolean groupVarsByName = Boolean.getBoolean(getDefaultValue(GROUP_VARS_BY_NAME));
+		groupVarsByName = Prefs.get(GROUP_VARS_BY_NAME, groupVarsByName);
 
 		boolean showUnmatchedDataSetNames = Boolean.getBoolean(getDefaultValue("HDF5.showUnmatchedDataSetNames"));
 		showUnmatchedDataSetNames = Prefs.get("HDF5.showUnmatchedDataSetNames", showUnmatchedDataSetNames);
@@ -90,7 +92,7 @@ public class HDF5Config implements PlugIn {
 		System.out.println("Saving...");
 
 		// all OK and "Save" was pressed, so save it...
-		Prefs.set("HDF5.groupVarsByName", groupVarsByName);
+		Prefs.set(GROUP_VARS_BY_NAME, groupVarsByName);
 		Prefs.set("HDF5.showUnmatchedDataSetNames", showUnmatchedDataSetNames);
 		Prefs.set("HDF5.groupVarsByNameFormatGroup", groupVarsByNameFormatGroup);
 		Prefs.set("HDF5.groupVarsByNameFormat", groupVarsByNameFormat);
@@ -102,9 +104,9 @@ public class HDF5Config implements PlugIn {
 	}
 
 	public static void setDefaultsIfNoValueExists() {
-		boolean groupVarsByName = Boolean.getBoolean(getDefaultValue("HDF5.groupVarsByName"));
-		groupVarsByName = Prefs.get("HDF5.groupVarsByName", groupVarsByName);
-		Prefs.set("HDF5.groupVarsByName", groupVarsByName);
+		boolean groupVarsByName = Boolean.getBoolean(getDefaultValue(GROUP_VARS_BY_NAME));
+		groupVarsByName = Prefs.get(GROUP_VARS_BY_NAME, groupVarsByName);
+		Prefs.set(GROUP_VARS_BY_NAME, groupVarsByName);
 
 		boolean showUnmatchedDataSetNames = Boolean.getBoolean(getDefaultValue("HDF5.showUnmatchedDataSetNames"));
 		showUnmatchedDataSetNames = Prefs.get("HDF5.showUnmatchedDataSetNames", showUnmatchedDataSetNames);
@@ -124,7 +126,7 @@ public class HDF5Config implements PlugIn {
 	}
 
 	public static String getDefaultValue(String key) {
-		if (key.equals("HDF5.groupVarsByName")) {
+		if (key.equals(GROUP_VARS_BY_NAME)) {
 			boolean groupVarsByName = true; // default
 			return Boolean.toString(groupVarsByName);
 		} else if (key.equals("HDF5.showUnmatchedDataSetNames")) {
