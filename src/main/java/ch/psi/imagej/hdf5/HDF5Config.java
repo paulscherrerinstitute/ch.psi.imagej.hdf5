@@ -12,77 +12,42 @@ public class HDF5Config implements PlugIn {
 	
 	private static final Logger logger = Logger.getLogger(HDF5Config.class.getName());
 
-	public static String GROUP_VARS_BY_NAME = "HDF5.groupVarsByName";
-	public static String SHOW_UNMATCHED_DATASET_NAMES = "HDF5.showUnmatchedDataSetNames";
-	public static String GROUP_VARS_BY_NAME_FORMAT_GROUP = "HDF5.groupVarsByNameFormatGroup";
-	public static String GROUP_VARS_BY_NAME_FORMAT = "HDF5.groupVarsByNameFormat";
-	public static String DOLLAR_REGEXP_FOR_GROUPING = "HDF5.dollarRegexpForGrouping";
+	private static final String GROUP_VARS_BY_NAME = "HDF5.groupVarsByName";
+	private static final String SHOW_UNMATCHED_DATASET_NAMES = "HDF5.showUnmatchedDataSetNames";
+	private static final String GROUP_VARS_BY_NAME_FORMAT_GROUP = "HDF5.groupVarsByNameFormatGroup";
+	private static final String GROUP_VARS_BY_NAME_FORMAT = "HDF5.groupVarsByNameFormat";
+	private static final String DOLLAR_REGEXP_FOR_GROUPING = "HDF5.dollarRegexpForGrouping";
+	
+	// Getting preference or default values
+	private boolean groupVarsByName = Prefs.get(GROUP_VARS_BY_NAME, true);
+	private boolean showUnmatchedDataSetNames = Prefs.get(SHOW_UNMATCHED_DATASET_NAMES, true);
+	private String groupVarsByNameFormatGroup = Prefs.get(GROUP_VARS_BY_NAME_FORMAT_GROUP, "/hints");
+	private String groupVarsByNameFormat = Prefs.get(GROUP_VARS_BY_NAME_FORMAT, "/t$T/channel$C");
+	private String dollarRegexpForGrouping = Prefs.get(DOLLAR_REGEXP_FOR_GROUPING, "[0-9]+");
+	
 	
 	public void run(String arg) {
-		// set default values
-		setDefaultsIfNoValueExists();
-		// read ImageJ Preferences
-		boolean groupVarsByName = Boolean.getBoolean(getDefaultValue(GROUP_VARS_BY_NAME));
-		groupVarsByName = Prefs.get(GROUP_VARS_BY_NAME, groupVarsByName);
-
-		boolean showUnmatchedDataSetNames = Boolean.getBoolean(getDefaultValue(SHOW_UNMATCHED_DATASET_NAMES));
-		showUnmatchedDataSetNames = Prefs.get(SHOW_UNMATCHED_DATASET_NAMES, showUnmatchedDataSetNames);
-
-		String groupVarsByNameFormatGroup = getDefaultValue(GROUP_VARS_BY_NAME_FORMAT_GROUP);
-		groupVarsByNameFormatGroup = Prefs.get(GROUP_VARS_BY_NAME_FORMAT_GROUP, groupVarsByNameFormatGroup);
-
-		String groupVarsByNameFormat = getDefaultValue(GROUP_VARS_BY_NAME_FORMAT);
-		groupVarsByNameFormat = Prefs.get(GROUP_VARS_BY_NAME_FORMAT, groupVarsByNameFormat);
-
-		String dollarRegexpForGrouping = getDefaultValue(DOLLAR_REGEXP_FOR_GROUPING);
-		dollarRegexpForGrouping = Prefs.get(DOLLAR_REGEXP_FOR_GROUPING, dollarRegexpForGrouping);
-
+		
 		GenericDialog configDiag = new GenericDialog("HDF5 Preferences");
 		configDiag.addMessage("Reader:");
 		configDiag.addCheckbox("Group data set names instead of showing a list " + "of data set names.", groupVarsByName);
 		configDiag.addCheckbox("Show unmatched data set names in a separate list", showUnmatchedDataSetNames);
 		configDiag.addStringField("HDF5 group containing pattern " + "for data set grouping: ", groupVarsByNameFormatGroup, 15);
 		configDiag.addStringField("Pattern for grouping (if no attributes" + " are found): ", groupVarsByNameFormat, 15);
-		// configDiag.addStringField("$ regexp (ignored because only numbers" +
-		// " work right now): ",
-		// dollarRegexpForGrouping,15);
-		configDiag.addMessage("Writer:");
-
-		String yesLabel = "Save";
-		String noLabel = "Reset";
-		configDiag.enableYesNoCancel(yesLabel, noLabel);
+		
 		configDiag.showDialog();
 
 		if (configDiag.wasCanceled()) {
-			// do nothing
 			return;
 		}
-		if (!configDiag.wasOKed()) {
-			// reset button was pressed
-			logger.info("reset button was pressed");
-			// reset all and return a new dialog
-			configDiag.setVisible(false);
-			this.run(arg);
-			return;
-		}
-		// get parameters check if they are correct
 
+		// Get parameters check if they are correct
 		groupVarsByName = configDiag.getNextBoolean();
-		logger.info("groupVarsByName: " + Boolean.toString(groupVarsByName));
-
 		showUnmatchedDataSetNames = configDiag.getNextBoolean();
-		logger.info("showUnmatchedDataSetNames: " + Boolean.toString(showUnmatchedDataSetNames));
-
 		groupVarsByNameFormatGroup = configDiag.getNextString();
-		logger.info("groupVarsByNameFormatGroup: " + groupVarsByNameFormatGroup);
-
 		groupVarsByNameFormat = configDiag.getNextString();
-		logger.info("groupVarsByNameFormat: " + groupVarsByNameFormat);
 
-		// dollarRegexpForGrouping = configDiag.getNextString();
-		// logger.info("dollarRegexpForGrouping: " +
-		// dollarRegexpForGrouping);
-
+		
 		try {
 			String[] formatTokens = HDF5GroupedVarnames.parseFormatString(groupVarsByNameFormat, dollarRegexpForGrouping);
 			for (int i = 0; i < formatTokens.length; i++) {
@@ -97,62 +62,32 @@ public class HDF5Config implements PlugIn {
 			this.run(arg);
 			return;
 		}
+		
 		logger.info("Saving...");
 
-		// all OK and "Save" was pressed, so save it...
+		// All OK and "Save" was pressed, so save it...
 		Prefs.set(GROUP_VARS_BY_NAME, groupVarsByName);
 		Prefs.set(SHOW_UNMATCHED_DATASET_NAMES, showUnmatchedDataSetNames);
 		Prefs.set(GROUP_VARS_BY_NAME_FORMAT_GROUP, groupVarsByNameFormatGroup);
 		Prefs.set(GROUP_VARS_BY_NAME_FORMAT, groupVarsByNameFormat);
-		//
-		// ignore the $ regexp for now, because only numbers work
-		//
 		Prefs.set(DOLLAR_REGEXP_FOR_GROUPING, dollarRegexpForGrouping);
 
 	}
 
-	public static void setDefaultsIfNoValueExists() {
-		boolean groupVarsByName = Boolean.getBoolean(getDefaultValue(GROUP_VARS_BY_NAME));
-		groupVarsByName = Prefs.get(GROUP_VARS_BY_NAME, groupVarsByName);
-		Prefs.set(GROUP_VARS_BY_NAME, groupVarsByName);
 
-		boolean showUnmatchedDataSetNames = Boolean.getBoolean(getDefaultValue(SHOW_UNMATCHED_DATASET_NAMES));
-		showUnmatchedDataSetNames = Prefs.get(SHOW_UNMATCHED_DATASET_NAMES, showUnmatchedDataSetNames);
-		Prefs.set(SHOW_UNMATCHED_DATASET_NAMES, showUnmatchedDataSetNames);
-
-		String groupVarsByNameFormatGroup = getDefaultValue(GROUP_VARS_BY_NAME_FORMAT_GROUP);
-		groupVarsByNameFormatGroup = Prefs.get(GROUP_VARS_BY_NAME_FORMAT_GROUP, groupVarsByNameFormatGroup);
-		Prefs.set(GROUP_VARS_BY_NAME_FORMAT_GROUP, groupVarsByNameFormatGroup);
-
-		String groupVarsByNameFormat = getDefaultValue(GROUP_VARS_BY_NAME_FORMAT);
-		groupVarsByNameFormat = Prefs.get(GROUP_VARS_BY_NAME_FORMAT, groupVarsByNameFormat);
-		Prefs.set(GROUP_VARS_BY_NAME_FORMAT, groupVarsByNameFormat);
-
-		String dollarRegexpForGrouping = getDefaultValue(DOLLAR_REGEXP_FOR_GROUPING);
-		dollarRegexpForGrouping = Prefs.get(DOLLAR_REGEXP_FOR_GROUPING, dollarRegexpForGrouping);
-		Prefs.set(DOLLAR_REGEXP_FOR_GROUPING, dollarRegexpForGrouping);
+	public boolean isGroupVarsByName() {
+		return groupVarsByName;
 	}
-
-	public static String getDefaultValue(String key) {
-		if (key.equals(GROUP_VARS_BY_NAME)) {
-			boolean groupVarsByName = true; // default
-			return Boolean.toString(groupVarsByName);
-		} else if (key.equals(SHOW_UNMATCHED_DATASET_NAMES)) {
-			boolean showUnmatchedDataSetNames = true; // default
-			return Boolean.toString(showUnmatchedDataSetNames);
-		} else if (key.equals(GROUP_VARS_BY_NAME_FORMAT_GROUP)) {
-			String groupVarsByNameFormatGroup = "/hints"; // default
-			return groupVarsByNameFormatGroup;
-		} else if (key.equals(GROUP_VARS_BY_NAME_FORMAT)) {
-			String groupVarsByNameFormat = "/t$T/channel$C"; // default
-			return groupVarsByNameFormat;
-		} else if (key.equals(DOLLAR_REGEXP_FOR_GROUPING)) {
-			String dollarRegexpForGrouping = "[0-9]+"; // default
-			return dollarRegexpForGrouping;
-		} else {
-			logger.info("No default value for key: " + key);
-			return null;
-		}
+	public boolean isShowUnmatchedDataSetNames() {
+		return showUnmatchedDataSetNames;
 	}
-
+	public String getGroupVarsByNameFormatGroup() {
+		return groupVarsByNameFormatGroup;
+	}
+	public String getGroupVarsByNameFormat() {
+		return groupVarsByNameFormat;
+	}
+	public String getDollarRegexpForGrouping() {
+		return dollarRegexpForGrouping;
+	}
 }

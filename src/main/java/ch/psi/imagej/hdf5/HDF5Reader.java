@@ -21,7 +21,6 @@ package ch.psi.imagej.hdf5;
  */
 
 import ij.IJ;
-import ij.Prefs;
 import ij.ImagePlus;
 import ij.CompositeImage;
 import ij.ImageStack;
@@ -100,15 +99,13 @@ public class HDF5Reader implements PlugIn {
 			/*-------------------------------------------------------------------
 			 *  read HDF5_Config prefs
 			 *-------------------------------------------------------------------*/
-			boolean groupVarsByName = Boolean.getBoolean(HDF5Config.getDefaultValue(HDF5Config.GROUP_VARS_BY_NAME));
-			groupVarsByName = Prefs.get(HDF5Config.GROUP_VARS_BY_NAME, groupVarsByName);
+			HDF5Config config = new HDF5Config();
+			boolean groupVarsByName = config.isGroupVarsByName();
+			boolean showUnmatchedDataSetNames = config.isShowUnmatchedDataSetNames();
+			String groupVarsByNameFormatGroup = config.getGroupVarsByNameFormatGroup();
+			String dollarRegexpForGrouping = config.getDollarRegexpForGrouping();
 
-			boolean showUnmatchedDataSetNames = Boolean.getBoolean(HDF5Config.getDefaultValue(HDF5Config.SHOW_UNMATCHED_DATASET_NAMES));
-			showUnmatchedDataSetNames = Prefs.get(HDF5Config.SHOW_UNMATCHED_DATASET_NAMES, showUnmatchedDataSetNames);
-
-			String groupVarsByNameFormatGroup = HDF5Config.getDefaultValue(HDF5Config.GROUP_VARS_BY_NAME_FORMAT_GROUP);
-			groupVarsByNameFormatGroup = Prefs.get(HDF5Config.GROUP_VARS_BY_NAME_FORMAT_GROUP, groupVarsByNameFormatGroup);
-
+			
 			// TODO: try to read attribute containing format String
 			String groupVarsByNameFormat = null;
 			try {
@@ -159,17 +156,14 @@ public class HDF5Reader implements PlugIn {
 					logger.info("File has format string for grouping: " + groupVarsByNameFormat);
 				} else {
 					logger.info("File has no format string for grouping" + ", using default");
-					groupVarsByNameFormat = HDF5Config.getDefaultValue(HDF5Config.GROUP_VARS_BY_NAME_FORMAT);
-					groupVarsByNameFormat = Prefs.get(HDF5Config.GROUP_VARS_BY_NAME_FORMAT, groupVarsByNameFormat);
+					groupVarsByNameFormat = config.getGroupVarsByNameFormat();
 				}
 			} catch (Exception e) {
 				logger.info("Error occured read format string " + "for grouping, using default");
-				groupVarsByNameFormat = HDF5Config.getDefaultValue(HDF5Config.GROUP_VARS_BY_NAME_FORMAT);
-				groupVarsByNameFormat = Prefs.get(HDF5Config.GROUP_VARS_BY_NAME_FORMAT, groupVarsByNameFormat);
+				groupVarsByNameFormat = config.getGroupVarsByNameFormat();
 			}
 
-			String dollarRegexpForGrouping = HDF5Config.getDefaultValue(HDF5Config.DOLLAR_REGEXP_FOR_GROUPING);
-			dollarRegexpForGrouping = Prefs.get(HDF5Config.DOLLAR_REGEXP_FOR_GROUPING, dollarRegexpForGrouping);
+			
 
 			/*-------------------------------------------------------------------
 			 *  init the frame and channel ranges
