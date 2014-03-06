@@ -103,11 +103,11 @@ public class HDF5Reader implements PlugIn {
 			boolean groupVarsByName = Boolean.getBoolean(HDF5Config.getDefaultValue(HDF5Config.GROUP_VARS_BY_NAME));
 			groupVarsByName = Prefs.get(HDF5Config.GROUP_VARS_BY_NAME, groupVarsByName);
 
-			boolean showUnmatchedDataSetNames = Boolean.getBoolean(HDF5Config.getDefaultValue("HDF5.showUnmatchedDataSetNames"));
-			showUnmatchedDataSetNames = Prefs.get("HDF5.showUnmatchedDataSetNames", showUnmatchedDataSetNames);
+			boolean showUnmatchedDataSetNames = Boolean.getBoolean(HDF5Config.getDefaultValue(HDF5Config.SHOW_UNMATCHED_DATASET_NAMES));
+			showUnmatchedDataSetNames = Prefs.get(HDF5Config.SHOW_UNMATCHED_DATASET_NAMES, showUnmatchedDataSetNames);
 
-			String groupVarsByNameFormatGroup = HDF5Config.getDefaultValue("HDF5.groupVarsByNameFormatGroup");
-			groupVarsByNameFormatGroup = Prefs.get("HDF5.groupVarsByNameFormatGroup", groupVarsByNameFormatGroup);
+			String groupVarsByNameFormatGroup = HDF5Config.getDefaultValue(HDF5Config.GROUP_VARS_BY_NAME_FORMAT_GROUP);
+			groupVarsByNameFormatGroup = Prefs.get(HDF5Config.GROUP_VARS_BY_NAME_FORMAT_GROUP, groupVarsByNameFormatGroup);
 
 			// TODO: try to read attribute containing format String
 			String groupVarsByNameFormat = null;
@@ -159,17 +159,17 @@ public class HDF5Reader implements PlugIn {
 					System.out.println("File has format string for grouping: " + groupVarsByNameFormat);
 				} else {
 					System.out.println("File has no format string for grouping" + ", using default");
-					groupVarsByNameFormat = HDF5Config.getDefaultValue("HDF5.groupVarsByNameFormat");
-					groupVarsByNameFormat = Prefs.get("HDF5.groupVarsByNameFormat", groupVarsByNameFormat);
+					groupVarsByNameFormat = HDF5Config.getDefaultValue(HDF5Config.GROUP_VARS_BY_NAME_FORMAT);
+					groupVarsByNameFormat = Prefs.get(HDF5Config.GROUP_VARS_BY_NAME_FORMAT, groupVarsByNameFormat);
 				}
 			} catch (Exception e) {
 				System.out.println("Error occured read format string " + "for grouping, using default");
-				groupVarsByNameFormat = HDF5Config.getDefaultValue("HDF5.groupVarsByNameFormat");
-				groupVarsByNameFormat = Prefs.get("HDF5.groupVarsByNameFormat", groupVarsByNameFormat);
+				groupVarsByNameFormat = HDF5Config.getDefaultValue(HDF5Config.GROUP_VARS_BY_NAME_FORMAT);
+				groupVarsByNameFormat = Prefs.get(HDF5Config.GROUP_VARS_BY_NAME_FORMAT, groupVarsByNameFormat);
 			}
 
-			String dollarRegexpForGrouping = HDF5Config.getDefaultValue("HDF5.dollarRegexpForGrouping");
-			dollarRegexpForGrouping = Prefs.get("HDF5.dollarRegexpForGrouping", dollarRegexpForGrouping);
+			String dollarRegexpForGrouping = HDF5Config.getDefaultValue(HDF5Config.DOLLAR_REGEXP_FOR_GROUPING);
+			dollarRegexpForGrouping = Prefs.get(HDF5Config.DOLLAR_REGEXP_FOR_GROUPING, dollarRegexpForGrouping);
 
 			/*-------------------------------------------------------------------
 			 *  init the frame and channel ranges
