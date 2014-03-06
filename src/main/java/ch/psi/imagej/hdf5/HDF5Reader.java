@@ -134,18 +134,18 @@ public class HDF5Reader implements PlugIn {
 							attrName = attrSelecD.getNextChoice();
 					}
 
-					System.out.println("Reading attribute");
+					logger.info("Reading attribute");
 					Attribute attr = getAttribute(gr, attrName);
-					System.out.println("Reading attribute is ok");
+					logger.info("Reading attribute is ok");
 					if (attr != null)
-						System.out.println("attr is not null");
-					System.out.println("attr.getName(): " + attr.getName());
+						logger.info("attr is not null");
+					logger.info("attr.getName(): " + attr.getName());
 					Datatype dType = attr.getType();
-					System.out.println(dType.getDatatypeDescription());
+					logger.info(dType.getDatatypeDescription());
 
 					Object tmp = attr.getValue();
 					if (tmp != null)
-						System.out.println("get value is ok");
+						logger.info("get value is ok");
 					if (tmp instanceof String) {
 						// we have a string
 						groupVarsByNameFormat = (String) tmp;
@@ -156,14 +156,14 @@ public class HDF5Reader implements PlugIn {
 						for (int i = 0; i < sTmp.length; i++)
 							groupVarsByNameFormat = groupVarsByNameFormat + sTmp[i];
 					}
-					System.out.println("File has format string for grouping: " + groupVarsByNameFormat);
+					logger.info("File has format string for grouping: " + groupVarsByNameFormat);
 				} else {
-					System.out.println("File has no format string for grouping" + ", using default");
+					logger.info("File has no format string for grouping" + ", using default");
 					groupVarsByNameFormat = HDF5Config.getDefaultValue(HDF5Config.GROUP_VARS_BY_NAME_FORMAT);
 					groupVarsByNameFormat = Prefs.get(HDF5Config.GROUP_VARS_BY_NAME_FORMAT, groupVarsByNameFormat);
 				}
 			} catch (Exception e) {
-				System.out.println("Error occured read format string " + "for grouping, using default");
+				logger.info("Error occured read format string " + "for grouping, using default");
 				groupVarsByNameFormat = HDF5Config.getDefaultValue(HDF5Config.GROUP_VARS_BY_NAME_FORMAT);
 				groupVarsByNameFormat = Prefs.get(HDF5Config.GROUP_VARS_BY_NAME_FORMAT, groupVarsByNameFormat);
 			}
@@ -208,7 +208,7 @@ public class HDF5Reader implements PlugIn {
 					varNames[i] = varList.get(i).getFullName();
 				}
 				groupedVarnames.parseVarNames(varNames, groupVarsByNameFormat, dollarRegexpForGrouping);
-				System.out.println(groupedVarnames.toString());
+				logger.info(groupedVarnames.toString());
 
 				// make the data set selection dialog
 				minFrameIndex = groupedVarnames.getMinFrameIndex();
@@ -249,7 +249,7 @@ public class HDF5Reader implements PlugIn {
 						varSelections[i] = title;
 						defaultValues[i] = false;
 					}
-					System.out.println("addcheckboxgroup with " + unmatchedVarNames.size() + " rows");
+					logger.info("addcheckboxgroup with " + unmatchedVarNames.size() + " rows");
 					gd.addCheckboxGroup(unmatchedVarNames.size(), 1, varSelections, defaultValues);
 					addScrollBars(gd);
 				}
@@ -282,7 +282,7 @@ public class HDF5Reader implements PlugIn {
 						if (frameRangeToks.length == 1) {
 							// single frame
 							try {
-								System.out.println("single frame");
+								logger.info("single frame");
 								minFrameIndex = Integer.parseInt(frameRangeToks[0]);
 								maxFrameIndex = minFrameIndex;
 								wrongFrameRange = false;
@@ -292,7 +292,7 @@ public class HDF5Reader implements PlugIn {
 						} else if (frameRangeToks.length == 2) {
 							// frame range with skipFrameIndex=1
 							try {
-								System.out.println("frame range with skipFrameIndex=1");
+								logger.info("frame range with skipFrameIndex=1");
 								minFrameIndex = Integer.parseInt(frameRangeToks[0]);
 								maxFrameIndex = Integer.parseInt(frameRangeToks[1]);
 								wrongFrameRange = false;
@@ -302,7 +302,7 @@ public class HDF5Reader implements PlugIn {
 						} else if (frameRangeToks.length == 3) {
 							// frame range with skipFrameIndex
 							try {
-								System.out.println("frame range with skipFrameIndex");
+								logger.info("frame range with skipFrameIndex");
 								minFrameIndex = Integer.parseInt(frameRangeToks[0]);
 								skipFrameIndex = Integer.parseInt(frameRangeToks[1]);
 								maxFrameIndex = Integer.parseInt(frameRangeToks[2]);
@@ -312,7 +312,7 @@ public class HDF5Reader implements PlugIn {
 							}
 						} else {
 							// wrong format
-							System.out.println("wrong format");
+							logger.info("wrong format");
 							wrongFrameRange = true;
 						}
 
@@ -352,7 +352,7 @@ public class HDF5Reader implements PlugIn {
 						}
 						if (wrongFrameRange || wrongChannelRange) {
 							// show dialog again
-							System.out.println("show dialog again");
+							logger.info("show dialog again");
 							// TODO reset dialog when possible
 							gd = new GenericDialog("Range Selection");
 							gd.addMessage("Select frames and channels you want to read");
@@ -363,7 +363,7 @@ public class HDF5Reader implements PlugIn {
 							gd.addStringField("Channel selection (start:[step:]end): ",
 									Integer.toString(minChannelIndex) + ":" + Integer.toString(skipChannelIndex) + ":" + Integer.toString(maxChannelIndex));
 							gd.showDialog();
-							System.out.println("read ranges again");
+							logger.info("read ranges again");
 							frameRange = gd.getNextString();
 							channelRange = gd.getNextString();
 
@@ -385,7 +385,7 @@ public class HDF5Reader implements PlugIn {
 								varList.add((Dataset) ds);
 							}
 						} catch (Exception e) {
-							System.out.println("The file does not contain a variable " + "with name " + "`" + dsName + "`!");
+							logger.info("The file does not contain a variable " + "with name " + "`" + dsName + "`!");
 						}
 					}
 				} else {
@@ -395,11 +395,11 @@ public class HDF5Reader implements PlugIn {
 
 			} else if (varList.size() > 1000) {
 				
-				System.out.println("#######");
+				logger.info("#######");
 				for(Dataset d: varList){
-					System.out.println(d.getFullName());
+					logger.info(d.getFullName());
 				}
-				System.out.println("#######");
+				logger.info("#######");
 				
 				/*-----------------------------------------------------------------
 				 *  FIXME: quick an dirty hack for files with more than 1000
@@ -448,7 +448,7 @@ public class HDF5Reader implements PlugIn {
 					varSelections[i] = title;
 					defaultValues[i] = false;
 				}
-				System.out.println("addcheckboxgroup with " + varList.size() + " rows");
+				logger.info("addcheckboxgroup with " + varList.size() + " rows");
 				gd.addCheckboxGroup(varList.size(), 1, varSelections, defaultValues);
 				addScrollBars(gd);
 				gd.showDialog();
@@ -478,12 +478,12 @@ public class HDF5Reader implements PlugIn {
 				try {
 					TimeFrame f = groupedVarnames.getFrame(0);
 					if (f == null)
-						System.out.println("frame is null");
+						logger.info("frame is null");
 					if (formatTokens.length == 2)
 						dsName = formatTokens[0] + Integer.toString(f.getFrameIndex()) + formatTokens[1] + Integer.toString(f.getChannelIndices()[0]);
 					else if (formatTokens.length == 3)
 						dsName = formatTokens[0] + Integer.toString(f.getFrameIndex()) + formatTokens[1] + Integer.toString(f.getChannelIndices()[0]) + formatTokens[2];
-					System.out.println("VarName: " + dsName);
+					logger.info("VarName: " + dsName);
 					HObject ds = inFile.get(dsName);
 					if (ds != null && ds instanceof Dataset) {
 						var = (Dataset) ds;
@@ -511,7 +511,7 @@ public class HDF5Reader implements PlugIn {
 							elem_sizes[1] = 1.0;
 							elem_sizes[2] = 1.0;
 						} else {
-							System.out.println("Reading element_size_um");
+							logger.info("Reading element_size_um");
 							float[] tmp = null;
 							try {
 								tmp = ((float[]) elemsize_att.getValue());
@@ -558,7 +558,7 @@ public class HDF5Reader implements PlugIn {
 
 					// create a new image stack and fill in the data
 					ImageStack stack = new ImageStack(nCols, nRows, nFrames * nSlices * nChannels);
-					System.out.println("stackSize: " + Integer.toString(stack.getSize()));
+					logger.info("stackSize: " + Integer.toString(stack.getSize()));
 
 					ImagePlus imp = new ImagePlus();
 					// to get getFrameIndex() working
@@ -575,7 +575,7 @@ public class HDF5Reader implements PlugIn {
 						// get current frame
 						TimeFrame f = groupedVarnames.getFrame(fIdx);
 						if (f == null)
-							System.out.println("frame is null");
+							logger.info("frame is null");
 						// get channel indices
 
 						// TODO: check if frame has same parameters as first,
@@ -588,7 +588,7 @@ public class HDF5Reader implements PlugIn {
 							else if (formatTokens.length == 3)
 								dsName = formatTokens[0] + Integer.toString(f.getFrameIndex()) + formatTokens[1] + Integer.toString(f.getChannelIndices()[cIdx]) + formatTokens[2];
 
-							System.out.println("VarName: " + dsName);
+							logger.info("VarName: " + dsName);
 
 							HObject ds = inFile.get(dsName);
 							if (ds != null && ds instanceof Dataset) {
@@ -648,7 +648,7 @@ public class HDF5Reader implements PlugIn {
 									short[] tmp = (short[]) extractSubarray(wholeDataset, startIdx, numElements);
 									stack.setPixels(tmp, imp.getStackIndex(cIdx + 1, lev + 1, fIdx + 1));
 								} else if (wholeDataset instanceof int[]) {
-									System.out.println("Datatype `int` is not supported. " + "Skipping whole frame!");
+									logger.info("Datatype `int` is not supported. " + "Skipping whole frame!");
 									// int[] tmp = (int[])
 									// extractSubarray(wholeDataset,
 									// startIdx,
@@ -666,7 +666,7 @@ public class HDF5Reader implements PlugIn {
 									// imp.getStackIndex(cIdx+1,lev+1,fIdx+1));
 									// }
 								} else if (wholeDataset instanceof long[]) {
-									System.out.println("Datatype `long` is not supported. " + "Skipping whole frame!");
+									logger.info("Datatype `long` is not supported. " + "Skipping whole frame!");
 									// long[] tmp = (long[])
 									// extractSubarray(wholeDataset,
 									// startIdx,
@@ -687,7 +687,7 @@ public class HDF5Reader implements PlugIn {
 									float[] tmp = (float[]) extractSubarray(wholeDataset, startIdx, numElements);
 									stack.setPixels(tmp, imp.getStackIndex(cIdx + 1, lev + 1, fIdx + 1));
 								} else if (wholeDataset instanceof double[]) {
-									System.out.println("Datatype `double` is not supported. " + "Converting whole frame to `float`!");
+									logger.info("Datatype `double` is not supported. " + "Converting whole frame to `float`!");
 									float[] tmp = convertDoubleToFloat((double[]) extractSubarray(wholeDataset, startIdx, numElements));
 									stack.setPixels(tmp, imp.getStackIndex(cIdx + 1, lev + 1, fIdx + 1));
 								} else {
@@ -699,32 +699,32 @@ public class HDF5Reader implements PlugIn {
 					}
 					IJ.showProgress(1.f);
 
-					System.out.println("Creating image plus");
+					logger.info("Creating image plus");
 					// stack.trim();
 					imp = new ImagePlus(directory + name + ": " + groupedVarnames.getFormatString(), stack);
 
 					imp.setDimensions(nChannels, nSlices, nFrames);
 
 					if (nChannels > 1) {
-						System.out.println("Creating composite hyperstack with " + Integer.toString(nChannels) + " channels.");
+						logger.info("Creating composite hyperstack with " + Integer.toString(nChannels) + " channels.");
 						imp = new CompositeImage(imp, CompositeImage.COMPOSITE);
 					} else {
-						System.out.println("Creating grayscale hyperstack.");
+						logger.info("Creating grayscale hyperstack.");
 						// imp = new CompositeImage(imp,
 						// CompositeImage.GRAYSCALE);
 					}
 
-					System.out.println("nFrames: " + Integer.toString(nFrames));
-					System.out.println("nSlices: " + Integer.toString(nSlices));
+					logger.info("nFrames: " + Integer.toString(nFrames));
+					logger.info("nSlices: " + Integer.toString(nSlices));
 
-					System.out.println("stackSize: " + Integer.toString(stack.getSize()));
+					logger.info("stackSize: " + Integer.toString(stack.getSize()));
 
 					// set element_size_um
 					imp.getCalibration().pixelDepth = elem_sizes[0];
 					imp.getCalibration().pixelHeight = elem_sizes[1];
 					imp.getCalibration().pixelWidth = elem_sizes[2];
 
-					// System.out.println("   Min = " + minMaxVal[0] +
+					// logger.info("   Min = " + minMaxVal[0] +
 					// ", Max = " + minMaxVal[1]);
 					// imp.setDisplayRange(1.5*minMaxVal[0], 0.5*minMaxVal[1]);
 					// imp.resetDisplayRange();
@@ -735,12 +735,12 @@ public class HDF5Reader implements PlugIn {
 						// channelsIJ[c]);
 						// imp.setSlice(c+1);
 						imp.setPosition(c + 1, 1, 1);
-						System.out.println("Current channel: " + Integer.toString(imp.getChannel() - 1));
+						logger.info("Current channel: " + Integer.toString(imp.getChannel() - 1));
 
 						imp.setDisplayRange(minValChannel[c], maxValChannel[c]);
 						// ,
 						// channelsIJ[c]);
-						System.out.println("Setting display range for channel " + Integer.toString(c) + " (ij idx: " + Integer.toString(channelsIJ[c]) + "): \n\t" + Double.toString(minValChannel[c])
+						logger.info("Setting display range for channel " + Integer.toString(c) + " (ij idx: " + Integer.toString(channelsIJ[c]) + "): \n\t" + Double.toString(minValChannel[c])
 								+ "/" + Double.toString(maxValChannel[c]));
 					}
 
@@ -763,12 +763,12 @@ public class HDF5Reader implements PlugIn {
 					Datatype datatypeIfUnsupported = null;
 					long[] extent = var.getDims();
 
-					System.out.println("Reading Variable: " + var.getName());
-					System.out.println("   Rank = " + rank + ", Data-type = " + datatype.getDatatypeDescription());
+					logger.info("Reading Variable: " + var.getName());
+					logger.info("   Rank = " + rank + ", Data-type = " + datatype.getDatatypeDescription());
 					System.out.print("   Extent in px (level,row,col):");
 					for (int d = 0; d < rank; ++d)
 						System.out.print(" " + extent[d]);
-					System.out.println("");
+					logger.info("");
 					IJ.showStatus("Reading Variable: " + var.getName() + " (" + extent[0] + " slices)");
 
 					Attribute elemsize_att = getAttribute(var, "element_size_um");
@@ -778,7 +778,7 @@ public class HDF5Reader implements PlugIn {
 						elem_sizes[1] = 1.0;
 						elem_sizes[2] = 1.0;
 					} else {
-						System.out.println("Reading element_size_um");
+						logger.info("Reading element_size_um");
 						Object tmp = elemsize_att.getValue();
 						if (tmp instanceof float[]) {
 							elem_sizes[0] = ((float[]) tmp)[0];
@@ -797,7 +797,7 @@ public class HDF5Reader implements PlugIn {
 							elem_sizes[2] = 1.0;
 						}
 					}
-					System.out.println("   Element-Size in um (level,row,col): " + elem_sizes[0] + ", " + elem_sizes[1] + ", " + elem_sizes[2]);
+					logger.info("   Element-Size in um (level,row,col): " + elem_sizes[0] + ", " + elem_sizes[1] + ", " + elem_sizes[2]);
 
 					// nice gadget to update the progress bar
 					long progressDivisor = extent[0] / 50; // we assume 50 process steps
@@ -806,7 +806,7 @@ public class HDF5Reader implements PlugIn {
 
 					// check if we have an unsupported datatype
 					if (datatype.getDatatypeClass() == Datatype.CLASS_INTEGER && (datatype.getDatatypeSize() == 4 || datatype.getDatatypeSize() == 8)) {
-						System.out.println("Datatype not supported by ImageJ");
+						logger.info("Datatype not supported by ImageJ");
 						GenericDialog typeSelDiag = new GenericDialog("Datatype Selection");
 						typeSelDiag.addMessage("The datatype `" + datatype.getDatatypeDescription() + "` is not supported by ImageJ.\n\n");
 						typeSelDiag.addMessage("Please select your wanted datatype.\n");
@@ -821,11 +821,11 @@ public class HDF5Reader implements PlugIn {
 						}
 						int selection = typeSelDiag.getNextChoiceIndex();
 						if (selection == 0) {
-							System.out.println("float selected");
+							logger.info("float selected");
 							datatypeIfUnsupported = new H5Datatype(Datatype.CLASS_FLOAT, Datatype.NATIVE, Datatype.NATIVE, -1);
 						}
 						if (selection == 1) {
-							System.out.println("short selected");
+							logger.info("short selected");
 							int typeSizeInByte = 2;
 							datatypeIfUnsupported = new H5Datatype(Datatype.CLASS_INTEGER, typeSizeInByte, Datatype.NATIVE, -1);
 						}
@@ -833,7 +833,7 @@ public class HDF5Reader implements PlugIn {
 
 					// read dataset
 					if (rank == 5 && extent[4] == 3) {
-						System.out.println("   Detected HyperVolume (type RGB).");
+						logger.info("   Detected HyperVolume (type RGB).");
 
 						// create a new image stack and fill in the data
 						ImageStack stack = new ImageStack((int) extent[3], (int) extent[2]);
@@ -1044,10 +1044,10 @@ public class HDF5Reader implements PlugIn {
 						int nChannels = 3;
 						int nSlices = (int) extent[1];
 						int nFrames = (int) extent[0];
-						System.out.println("nFrames: " + Integer.toString(nFrames));
-						System.out.println("nSlices: " + Integer.toString(nSlices));
+						logger.info("nFrames: " + Integer.toString(nFrames));
+						logger.info("nSlices: " + Integer.toString(nSlices));
 
-						System.out.println("stackSize: " + Integer.toString(stack.getSize()));
+						logger.info("stackSize: " + Integer.toString(stack.getSize()));
 
 						imp.setDimensions(nChannels, nSlices, nFrames);
 						imp = new CompositeImage(imp, CompositeImage.COMPOSITE);
@@ -1068,7 +1068,7 @@ public class HDF5Reader implements PlugIn {
 						imp.show();
 					} else if (rank == 4) {
 						if (extent[3] == 3) {
-							System.out.println("   Detected color Image (type RGB).");
+							logger.info("   Detected color Image (type RGB).");
 
 							// create a new image stack and fill in the data
 							ImageStack stack = new ImageStack((int) extent[2], (int) extent[1]);
@@ -1245,7 +1245,7 @@ public class HDF5Reader implements PlugIn {
 							imp.updateStatusbarValue();
 						} else // we have a HyperVolume
 						{
-							System.out.println("   Detected HyperVolume (type GREYSCALE).");
+							logger.info("   Detected HyperVolume (type GREYSCALE).");
 
 							// create a new image stack and fill in the data
 							ImageStack stack = new ImageStack((int) extent[3], (int) extent[2]);
@@ -1342,11 +1342,11 @@ public class HDF5Reader implements PlugIn {
 							int nFrames = (int) extent[0];
 							Integer nFramesI = new Integer(nFrames);
 							Integer nSlicesI = new Integer(nSlices);
-							System.out.println("nFrames: " + nFramesI.toString());
-							System.out.println("nSlices: " + nSlicesI.toString());
+							logger.info("nFrames: " + nFramesI.toString());
+							logger.info("nSlices: " + nSlicesI.toString());
 
 							Integer myStackSize = new Integer(stack.getSize());
-							System.out.println("stackSize: " + myStackSize.toString());
+							logger.info("stackSize: " + myStackSize.toString());
 
 							imp.setDimensions(nChannels, nSlices, nFrames);
 							imp.setOpenAsHyperStack(true);
@@ -1360,7 +1360,7 @@ public class HDF5Reader implements PlugIn {
 							imp.show();
 						}
 					} else if (rank == 3 && extent[2] == 3) {
-						System.out.println("This is an rgb image");
+						logger.info("This is an rgb image");
 						// create a new image stack and fill in the data
 						ImageStack stack = new ImageStack((int) extent[1], (int) extent[0]);
 
@@ -1515,7 +1515,7 @@ public class HDF5Reader implements PlugIn {
 						imp.show();
 						imp.updateStatusbarValue();
 					} else if (rank == 3) {
-						System.out.println("Rank is 3");
+						logger.info("Rank is 3");
 
 						// create a new image stack and fill in the data
 						ImageStack stack = new ImageStack((int) extent[2], (int) extent[1]);
@@ -1605,7 +1605,7 @@ public class HDF5Reader implements PlugIn {
 
 						// check if we have an unsupported datatype
 						if (datatype.getDatatypeClass() == Datatype.CLASS_INTEGER && (datatype.getDatatypeSize() == 4 || datatype.getDatatypeSize() == 8)) {
-							System.out.println("Datatype not supported by ImageJ");
+							logger.info("Datatype not supported by ImageJ");
 							GenericDialog typeSelDiag = new GenericDialog("Datatype Selection");
 							typeSelDiag.addMessage("The datatype `" + datatype.getDatatypeDescription() + "` is not supported by ImageJ.\n\n");
 							typeSelDiag.addMessage("Please select your wanted datatype.\n");
@@ -1620,11 +1620,11 @@ public class HDF5Reader implements PlugIn {
 							}
 							int selection = typeSelDiag.getNextChoiceIndex();
 							if (selection == 0) {
-								System.out.println("float selected");
+								logger.info("float selected");
 								datatypeIfUnsupported = new H5Datatype(Datatype.CLASS_FLOAT, Datatype.NATIVE, Datatype.NATIVE, -1);
 							}
 							if (selection == 1) {
-								System.out.println("short selected");
+								logger.info("short selected");
 								int typeSizeInByte = 2;
 								datatypeIfUnsupported = new H5Datatype(Datatype.CLASS_INTEGER, typeSizeInByte, Datatype.NATIVE, -1);
 							}
@@ -1693,7 +1693,7 @@ public class HDF5Reader implements PlugIn {
 						double imgMax = ips.getMax();
 						double imgMin = ips.getMin();
 
-						System.out.println("   Min = " + imgMin + ", Max = " + imgMax);
+						logger.info("   Min = " + imgMin + ", Max = " + imgMax);
 						ips.setMinAndMax(imgMin, imgMax);
 						imp.updateAndDraw();
 						imp.show();
@@ -1927,7 +1927,7 @@ public class HDF5Reader implements PlugIn {
 		} else if (unsignedConvSelec == 1) {
 			// convert to float
 			if (dataIn instanceof short[]) {
-				System.out.println("Converting to float");
+				logger.info("Converting to float");
 				short[] tmpIn = (short[]) dataIn;
 				float[] tmp = new float[tmpIn.length];
 				for (int i = 0; i < tmp.length; i++)

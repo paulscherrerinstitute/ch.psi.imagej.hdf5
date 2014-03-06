@@ -25,9 +25,11 @@ import ij.io.*;
 import ij.plugin.filter.PlugInFilter;
 import ij.process.*;
 import ij.gui.*;
+
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.logging.Logger;
 
 import javax.swing.tree.DefaultMutableTreeNode;
 
@@ -36,6 +38,9 @@ import ncsa.hdf.object.h5.*; // the HDF5 implementation
 import ncsa.hdf.hdf5lib.exceptions.HDF5Exception;
 
 public class HDF5Writer implements PlugInFilter {
+	
+	private static final Logger logger = Logger.getLogger(HDF5Writer.class.getName());
+	
 	private Boolean _batchMode = false;
 	private String _batchFileName = null;
 
@@ -96,7 +101,7 @@ public class HDF5Writer implements PlugInFilter {
 
 		// check for hyperstack
 		if (imp.getOpenAsHyperStack() || imp.isHyperStack()) {
-			System.out.println("This is a hyperstack");
+			logger.info("This is a hyperstack");
 			boolean splitChannels = true;
 			gd.addCheckbox("Split frames and channels", splitChannels);
 			gd.addStringField(imp.getTitle(), "/t$T/channel$C");
@@ -108,14 +113,14 @@ public class HDF5Writer implements PlugInFilter {
 			int nRows = imp.getHeight();
 			int nCols = imp.getWidth();
 			boolean isComposite = imp.isComposite();
-			System.out.println("isComposite: " + Boolean.toString(isComposite));
-			System.out.println("Saving image \"" + title + "\"");
-			System.out.println("nDims: " + Integer.toString(nDims));
-			System.out.println("nFrames: " + Integer.toString(nFrames));
-			System.out.println("nChannels: " + Integer.toString(nChannels));
-			System.out.println("nSlices: " + Integer.toString(nLevs));
-			System.out.println("nRows: " + Integer.toString(nRows));
-			System.out.println("nCols: " + Integer.toString(nCols));
+			logger.info("isComposite: " + Boolean.toString(isComposite));
+			logger.info("Saving image \"" + title + "\"");
+			logger.info("nDims: " + Integer.toString(nDims));
+			logger.info("nFrames: " + Integer.toString(nFrames));
+			logger.info("nChannels: " + Integer.toString(nChannels));
+			logger.info("nSlices: " + Integer.toString(nLevs));
+			logger.info("nRows: " + Integer.toString(nRows));
+			logger.info("nCols: " + Integer.toString(nCols));
 			gd.showDialog();
 			if (gd.wasCanceled()) {
 				IJ.error("Plugin canceled!");
@@ -123,22 +128,22 @@ public class HDF5Writer implements PlugInFilter {
 			}
 			splitChannels = gd.getNextBoolean();
 			String formatString = gd.getNextString();
-			System.out.println("formatString: " + formatString);
-			System.out.println("Bitdepth: " + imp.getBitDepth());
-			System.out.println("Saving HDF5 File: " + filename);
+			logger.info("formatString: " + formatString);
+			logger.info("Bitdepth: " + imp.getBitDepth());
+			logger.info("Saving HDF5 File: " + filename);
 
 			int imgColorDepth = imp.getBitDepth();
 			int imgColorType = imp.getType();
 			Datatype type = null;
 			if (imgColorType == ImagePlus.GRAY8) {
-				System.out.println("   bit depth: " + imgColorDepth + ", type: GRAY8");
+				logger.info("   bit depth: " + imgColorDepth + ", type: GRAY8");
 				type = new H5Datatype(Datatype.CLASS_CHAR, Datatype.NATIVE, Datatype.NATIVE, Datatype.SIGN_NONE);
 			} else if (imgColorType == ImagePlus.GRAY16) {
-				System.out.println("   bit depth: " + imgColorDepth + ", type: GRAY16");
+				logger.info("   bit depth: " + imgColorDepth + ", type: GRAY16");
 				int typeSizeInByte = 2;
 				type = new H5Datatype(Datatype.CLASS_INTEGER, typeSizeInByte, Datatype.NATIVE, Datatype.SIGN_NONE);
 			} else if (imgColorType == ImagePlus.GRAY32) {
-				System.out.println("   bit depth: " + imgColorDepth + ", type: GRAY32");
+				logger.info("   bit depth: " + imgColorDepth + ", type: GRAY32");
 //				int typeSizeInByte = 4;
 				type = new H5Datatype(Datatype.CLASS_FLOAT, Datatype.NATIVE, Datatype.NATIVE, -1);
 			}
@@ -176,9 +181,9 @@ public class HDF5Writer implements PlugInFilter {
 						for (int c = 0; c < nChannels; c++) {
 							String fullName = makeDataSetName(formatTokens, f, c);
 							String dataSetName = getDataSetDescriptor(fullName);
-							System.out.println("dataset name: " + dataSetName);
+							logger.info("dataset name: " + dataSetName);
 							String groupName = getGroupDescriptor(fullName);
-							System.out.println("group name: " + groupName);
+							logger.info("group name: " + groupName);
 							// ensure group exists
 							Group group = createGroupRecursive(groupName, null, outFile);
 							// create data set
@@ -208,14 +213,14 @@ public class HDF5Writer implements PlugInFilter {
 							// dataet
 							// write levels
 
-							System.out.println("selected.length: " + Integer.toString(selected.length));
-							System.out.println("channelDims.length: " + Integer.toString(channelDims.length));
+							logger.info("selected.length: " + Integer.toString(selected.length));
+							logger.info("channelDims.length: " + Integer.toString(channelDims.length));
 							if (nLevs == 1) {
 								for (int d = 0; d < selected.length; d++) {
 									selected[d] = channelDims[d];
 								}
 								int stackIndex = imp.getStackIndex(c + 1, 1, f + 1);
-								System.out.println("Stackindex: " + Integer.toString(stackIndex));
+								logger.info("Stackindex: " + Integer.toString(stackIndex));
 								// get raw data
 								Object slice = stack.getPixels(stackIndex);
 								assert (slice != null);
@@ -263,7 +268,7 @@ public class HDF5Writer implements PlugInFilter {
 				return;
 			}
 		} else {
-			System.out.println("This is NO hyperstack");
+			logger.info("This is NO hyperstack");
 			// String title = imp.getTitle();
 			// int nDims = imp.getNDimensions();
 			// int nFrames = imp.getNFrames();
@@ -272,14 +277,14 @@ public class HDF5Writer implements PlugInFilter {
 			// int nRows = imp.getHeight();
 			// int nCols = imp.getWidth();
 			// boolean isComposite = imp.isComposite() ;
-			// System.out.println("isComposite: "+Boolean.toString(isComposite));
-			// System.out.println("Saving image \""+title+"\"");
-			// System.out.println("nDims: "+Integer.toString(nDims));
-			// System.out.println("nFrames: "+Integer.toString(nFrames));
-			// System.out.println("nChannels: "+Integer.toString(nChannels));
-			// System.out.println("nSlices: "+Integer.toString(nLevs));
-			// System.out.println("nRows: "+Integer.toString(nRows));
-			// System.out.println("nCols: "+Integer.toString(nCols));
+			// logger.info("isComposite: "+Boolean.toString(isComposite));
+			// logger.info("Saving image \""+title+"\"");
+			// logger.info("nDims: "+Integer.toString(nDims));
+			// logger.info("nFrames: "+Integer.toString(nFrames));
+			// logger.info("nChannels: "+Integer.toString(nChannels));
+			// logger.info("nSlices: "+Integer.toString(nLevs));
+			// logger.info("nRows: "+Integer.toString(nRows));
+			// logger.info("nCols: "+Integer.toString(nCols));
 
 			gd.addStringField(imp.getTitle(), "");
 			gd.showDialog();
@@ -314,12 +319,12 @@ public class HDF5Writer implements PlugInFilter {
 				int imgColorDepth;
 				int imgColorType;
 
-				System.out.println("writing data to variable: " + varName);
+				logger.info("writing data to variable: " + varName);
 
 				String dataSetName = getDataSetDescriptor(varName);
-				System.out.println("dataset name: " + dataSetName);
+				logger.info("dataset name: " + dataSetName);
 				String groupName = getGroupDescriptor(varName);
-				System.out.println("group name: " + groupName);
+				logger.info("group name: " + groupName);
 
 				// ensure group exists
 				Group group = createGroupRecursive(groupName, null, outFile);
@@ -342,7 +347,7 @@ public class HDF5Writer implements PlugInFilter {
 					} else {
 						// color images have 4 dimensions, grey value images
 						// have 3.
-						System.out.println("adding 4 dimensions");
+						logger.info("adding 4 dimensions");
 						dims = new long[4];
 						dims[0] = nLevels;
 						dims[1] = nRows;
@@ -356,7 +361,7 @@ public class HDF5Writer implements PlugInFilter {
 						dims[0] = nRows;
 						dims[1] = nCols;
 					} else {
-						System.out.println("adding 3 dimensions");
+						logger.info("adding 3 dimensions");
 						dims = new long[3];
 						dims[0] = nLevels;
 						dims[1] = nRows;
@@ -386,23 +391,23 @@ public class HDF5Writer implements PlugInFilter {
 				// supported data types
 				// FIXME: set the right signed and precision stuff
 				if (imgColorType == ImagePlus.GRAY8) {
-					System.out.println("   bit depth: " + imgColorDepth + ", type: GRAY8");
+					logger.info("   bit depth: " + imgColorDepth + ", type: GRAY8");
 					type = new H5Datatype(Datatype.CLASS_CHAR, Datatype.NATIVE, Datatype.NATIVE, Datatype.SIGN_NONE);
 				} else if (imgColorType == ImagePlus.GRAY16) {
-					System.out.println("   bit depth: " + imgColorDepth + ", type: GRAY16");
+					logger.info("   bit depth: " + imgColorDepth + ", type: GRAY16");
 					int typeSizeInByte = 2;
 					type = new H5Datatype(Datatype.CLASS_INTEGER, typeSizeInByte, Datatype.NATIVE, Datatype.SIGN_NONE);
 				} else if (imgColorType == ImagePlus.GRAY32) {
-					System.out.println("   bit depth: " + imgColorDepth + ", type: GRAY32");
+					logger.info("   bit depth: " + imgColorDepth + ", type: GRAY32");
 //					int typeSizeInByte = 4;
 					type = new H5Datatype(Datatype.CLASS_FLOAT, Datatype.NATIVE, Datatype.NATIVE, -1);
 				} else if (imgColorType == ImagePlus.COLOR_RGB) {
-					System.out.println("   bit depth: " + imgColorDepth + ", type: COLOR_RGB");
+					logger.info("   bit depth: " + imgColorDepth + ", type: COLOR_RGB");
 					type = new H5Datatype(Datatype.CLASS_CHAR, Datatype.NATIVE, Datatype.NATIVE, Datatype.SIGN_NONE);
 				} else if (imgColorType == ImagePlus.COLOR_256) {
 					// FIXME: not supported yet
-					System.out.println("   bit depth: " + imgColorDepth + ", type: COLOR_256");
-					System.out.println(" ERROR: untested, this might fail.");
+					logger.info("   bit depth: " + imgColorDepth + ", type: COLOR_256");
+					logger.info(" ERROR: untested, this might fail.");
 					type = new H5Datatype(Datatype.CLASS_CHAR, Datatype.NATIVE, Datatype.NATIVE, Datatype.SIGN_NONE);
 				}
 
@@ -465,7 +470,7 @@ public class HDF5Writer implements PlugInFilter {
 				}
 				// get pixel sizes
 				ij.measure.Calibration cal = imp.getCalibration();
-				System.out.println("   Element-Size in um (level,row,col): " + cal.pixelDepth + ", " + cal.pixelHeight + ", " + cal.pixelWidth);
+				logger.info("   Element-Size in um (level,row,col): " + cal.pixelDepth + ", " + cal.pixelHeight + ", " + cal.pixelWidth);
 
 				float[] element_sizes = new float[3];
 				element_sizes[0] = (float) cal.pixelDepth;
@@ -545,8 +550,8 @@ public class HDF5Writer implements PlugInFilter {
 		} else {
 			String subgroupRelativName = groupRelativName.substring(posOfSlash);
 			String currentGroup = groupRelativName.substring(0, posOfSlash);
-			System.out.println("Create: " + currentGroup);
-			System.out.println("Call back for: " + subgroupRelativName);
+			logger.info("Create: " + currentGroup);
+			logger.info("Call back for: " + subgroupRelativName);
 			try {
 				Group newGroup;
 				String newGroupName;
@@ -555,7 +560,7 @@ public class HDF5Writer implements PlugInFilter {
 				else
 					newGroupName = group.getFullName() + "/" + currentGroup;
 
-				System.out.println("try opening: " + newGroupName);
+				logger.info("try opening: " + newGroupName);
 				newGroup = (Group) file.get(newGroupName);
 
 				if (newGroup == null)
@@ -632,11 +637,11 @@ public class HDF5Writer implements PlugInFilter {
 			obj = (Metadata) members.get(i);
 			if (obj instanceof Attribute) {
 				try {
-					System.out.println(((Attribute) obj).getName());
+					logger.info(((Attribute) obj).getName());
 					attributes.add((Attribute) obj);
 				} catch (java.lang.UnsupportedOperationException e) {
-					System.out.println("Caught UnsupportedOperationException datasets2.add((Dataset) obj)");
-					System.out.println(e.getMessage());
+					logger.info("Caught UnsupportedOperationException datasets2.add((Dataset) obj)");
+					logger.info(e.getMessage());
 				}
 			}
 		}

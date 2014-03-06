@@ -1,5 +1,6 @@
 package ch.psi.imagej.hdf5;
 
+import java.util.logging.Logger;
 import java.util.regex.*;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -7,6 +8,8 @@ import java.util.Iterator;
 import java.util.List;
 
 public class HDF5GroupedVarnames {
+	
+	private static final Logger logger = Logger.getLogger(HDF5GroupedVarnames.class.getName());
 	
 	private final List<String> matchedVarNames = new ArrayList<String>();
 	private final List<String> unMatchedVarNames = new ArrayList<String>();
@@ -26,7 +29,7 @@ public class HDF5GroupedVarnames {
 		boolean rightOrderOfFormatVars = groupVarsByNameFormat.indexOf("$T") < groupVarsByNameFormat.indexOf("$C");
 
 		for (int i = 0; i < formatTokens.length; i++) {
-			System.out.println("tok " + Integer.toString(i) + " : " + formatTokens[i]);
+			logger.info("tok " + Integer.toString(i) + " : " + formatTokens[i]);
 		}
 		if (formatTokens.length < 2 || !containsFormatVars || !rightOrderOfFormatVars) {
 			throw new PatternSyntaxException("Your format string has errors. " + "You must provide $T and $C and " + "also in correct order!", groupVarsByNameFormat, -1);
@@ -34,7 +37,7 @@ public class HDF5GroupedVarnames {
 		String regexp = groupVarsByNameFormat;
 		regexp = regexp.replace("$T", dollarRegexpForGrouping);
 		regexp = regexp.replace("$C", dollarRegexpForGrouping);
-		System.out.println(regexp);
+		logger.info(regexp);
 		// check if we have a regexp;
 		Pattern.compile(regexp);
 		return formatTokens;
@@ -48,14 +51,14 @@ public class HDF5GroupedVarnames {
 		} catch (PatternSyntaxException e) {
 			// produce an error dialog an start over
 			String errMsg = e.getMessage();
-			System.out.println(errMsg);
+			logger.info(errMsg);
 			return;
 		}
 		String regexp = groupVarsByNameFormat;
 		regexp = regexp.replace("$T", dollarRegexpForGrouping);
 		regexp = regexp.replace("$C", dollarRegexpForGrouping);
 
-		System.out.println(regexp);
+		logger.info(regexp);
 		// check if we have a regexp;
 		Pattern p = null;
 		p = Pattern.compile(regexp);
@@ -66,7 +69,7 @@ public class HDF5GroupedVarnames {
 			Matcher m = p.matcher(varNames[i]);
 			boolean b = m.matches();
 			if (b) {
-				System.out.println(varNames[i]);
+				logger.info(varNames[i]);
 				matchedVarNames.add(varNames[i]);
 			} else {
 				unMatchedVarNames.add(varNames[i]);
@@ -101,14 +104,14 @@ public class HDF5GroupedVarnames {
 			}
 
 			if (tokens.length < 2 || tokens.length > 3) {
-				System.out.println("Error parsing varname!");
+				logger.info("Error parsing varname!");
 			} else {
 				Integer channelIndex = new Integer(tokens[1]);
-				System.out.println("channelIndex: " + channelIndex.toString());
-				System.out.println("left token: " + tokens[0]);
+				logger.info("channelIndex: " + channelIndex.toString());
+				logger.info("left token: " + tokens[0]);
 				tokens = tokens[0].split("/t");
 				Integer frameIndex = new Integer(tokens[1]);
-				System.out.println("frameIndex: " + frameIndex.toString());
+				logger.info("frameIndex: " + frameIndex.toString());
 
 				if (minFrameIndex == -1)
 					minFrameIndex = frameIndex.intValue();
@@ -135,7 +138,7 @@ public class HDF5GroupedVarnames {
 					frame.addChannel(channelIndex.intValue());
 					frameList.add(frame);
 				}
-				// System.out.println(frame.toString());
+				// logger.info(frame.toString());
 			}
 		}
 	}
@@ -212,8 +215,8 @@ public class HDF5GroupedVarnames {
 	}
 
 	public void setFrameAndChannelRange(int minFrame, int skipFrame, int maxFrame, int minChannel, int skipChannel, int maxChannel) {
-		System.out.println("Setting frame range: " + Integer.toString(minFrame) + ":" + Integer.toString(skipFrame) + ":" + Integer.toString(maxFrame));
-		System.out.println("Setting channel range: " + Integer.toString(minChannel) + ":" + Integer.toString(skipChannel) + ":" + Integer.toString(maxChannel));
+		logger.info("Setting frame range: " + Integer.toString(minFrame) + ":" + Integer.toString(skipFrame) + ":" + Integer.toString(maxFrame));
+		logger.info("Setting channel range: " + Integer.toString(minChannel) + ":" + Integer.toString(skipChannel) + ":" + Integer.toString(maxChannel));
 		if (hasAllFramesInRange()) {
 			// copy frames
 			List<TimeFrame> completeFrameList = new ArrayList<TimeFrame>(frameList);
@@ -225,7 +228,7 @@ public class HDF5GroupedVarnames {
 				TimeFrame frame = new TimeFrame(frameAllChannels.getFrameIndex());
 				// TODO remove unwanted channels
 				for (int c = minChannel; c < maxChannel + 1; c += skipChannel) {
-					// System.out.println("Adding channels: " +
+					// logger.info("Adding channels: " +
 					// Integer.toString(c));
 					frame.addChannel(c);
 				}
@@ -235,9 +238,9 @@ public class HDF5GroupedVarnames {
 			}
 			// TODO update min/max of frames/channels
 			nChannels = ((maxChannel - minChannel) / skipChannel) + 1;
-			System.out.println("Adding nChannels: " + Integer.toString(nChannels));
+			logger.info("Adding nChannels: " + Integer.toString(nChannels));
 		} else {
-			System.out.println("-------------------------\n" + "hasAllFramesInRange==false\n" + "-------------------------");
+			logger.info("-------------------------\n" + "hasAllFramesInRange==false\n" + "-------------------------");
 			// copy frames
 			List<TimeFrame> completeFrameList = new ArrayList<TimeFrame>(frameList);
 			// clear frames
@@ -246,12 +249,12 @@ public class HDF5GroupedVarnames {
 			for (int f = minFrame; f < maxFrame + 1; f += skipFrame) {
 				TimeFrame frame = new TimeFrame(f);
 				int idx = completeFrameList.indexOf(frame);
-				// System.out.println("index of frame in list: " +
+				// logger.info("index of frame in list: " +
 				// Integer.toString(idx));
 				if (idx != -1) {
 					// TODO remove unwanted channels
 					for (int c = minChannel; c < maxChannel + 1; c += skipChannel) {
-						// System.out.println("Adding channels: " +
+						// logger.info("Adding channels: " +
 						// Integer.toString(c));
 						frame.addChannel(c);
 					}
@@ -259,12 +262,12 @@ public class HDF5GroupedVarnames {
 					// nChannels = frame.getNChannels();
 					frameList.add(frame);
 				} else {
-					System.out.println("Timestep " + Integer.toString(f) + " is missing!");
+					logger.info("Timestep " + Integer.toString(f) + " is missing!");
 				}
 			}
 			// TODO update min/max of frames/channels
 			nChannels = ((maxChannel - minChannel) / skipChannel) + 1;
-			System.out.println("Adding nChannels: " + Integer.toString(nChannels));
+			logger.info("Adding nChannels: " + Integer.toString(nChannels));
 		}
 	}
 }
