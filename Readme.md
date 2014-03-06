@@ -13,9 +13,20 @@ unzip <path of downloaded zip>
 This plugin requires ImageJ to be run with a Java 7 or greater JVM.
 
 # Usage
+
+Mac OS X:
+
 ```
 java -Djava.library.path=./lib/mac64 -Xmx3048m -jar ImageJ64.app/Contents/Resources/Java/ij.jar
 ```
+
+Linux:
+
+```
+java -Djava.library.path=./lib/linux64 -Xmx3048m -jar ij.jar
+```
+
+The `Xmx` setting is quite random it depends on how big hdf5 files you are planning to open.
 
 # Development
 To create an all in one zip file for installation in a ImageJ installation use: 
