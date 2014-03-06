@@ -18,6 +18,15 @@ Edit the "ImageJ.cfg" of your ImageJ installation
 Edit the `run` file of your ImageJ installation
 `java -Djava.library.path=./lib/mac32 -Xmx512m -jar ij.jar`
 
+
+
 # References 
 Inspired by: ImageJ HDF Plugin of Matthias Schlachter Chair of Pattern Recognition and Image Processing, University of Freiburg, Germany.
 https://code.google.com/p/imagej-hdf/
+
+
+# Development
+To create an all in one zip file for installation in a ImageJ installation use: 
+`mvn clean compile assembly:assembly`
+
+The zip file contains an all in one jar as well as the required native libraries for Windows, Linux and Mac OS X.

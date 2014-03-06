@@ -59,9 +59,10 @@
 					<finalName>HDF5_Viewer-${pom.version}</finalName>
 					<appendAssemblyId>false</appendAssemblyId>
 					<archive />
-					<descriptorRefs>
-						<descriptorRef>jar-with-dependencies</descriptorRef>
-					</descriptorRefs>
+					<descriptors>
+						<descriptor>src/main/assembly/assembly_jar.xml</descriptor>
+						<descriptor>src/main/assembly/assembly.xml</descriptor>
+					</descriptors>
 				</configuration>
 			</plugin>
 		</plugins>
