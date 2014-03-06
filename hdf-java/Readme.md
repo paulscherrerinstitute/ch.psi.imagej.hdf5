@@ -1,1 +1,0 @@
-jar files where uploaded to http://yoke.psi.ch/artifactory
