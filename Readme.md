@@ -1,32 +1,26 @@
 # Installation
 
-Drop jar into plugins directory of the ImageJ installation.
+Go into the ImageJ installation folder and extract the all in one zip.
 
-## Linux 32Bit
-Edit the `run` file of your ImageJ installation
-`./jre/bin/java -Djava.library.path=./lib/linux32 -Xmx512m -jar ij.jar`
+```
+cd <IMAGEJ_HOME>
+unzip <all in one zip>
+```
 
-## Linux 64Bit
-Edit the `run` file of your ImageJ installation
-`java -Djava.library.path=./lib/linux64 -Xmx512m -jar ij.jar`
+## Prerequisites
+This plugin requires ImageJ to be run with a Java 7 or greater JVM.
 
-## Windows 32Bit
-Edit the "ImageJ.cfg" of your ImageJ installation
-`C:\Programme\Java\jdk1.5.0_14\bin\javaw.exe -Djava.library.path=lib\win32 -Xmx640m -cp ij.jar ij.ImageJ`
-
-## Mac 32Bit
-Edit the `run` file of your ImageJ installation
-`java -Djava.library.path=./lib/mac32 -Xmx512m -jar ij.jar`
-
-
-
-# References 
-Inspired by: ImageJ HDF Plugin of Matthias Schlachter Chair of Pattern Recognition and Image Processing, University of Freiburg, Germany.
-https://code.google.com/p/imagej-hdf/
-
+# Usage
+```
+java -Djava.library.path=./lib/mac64 -Xmx3048m -jar ImageJ64.app/Contents/Resources/Java/ij.jar
+```
 
 # Development
 To create an all in one zip file for installation in a ImageJ installation use: 
 `mvn clean compile assembly:assembly`
 
 The zip file contains an all in one jar as well as the required native libraries for Windows, Linux and Mac OS X.
+
+# References 
+This project started from and is inspired by: ImageJ HDF Plugin of Matthias Schlachter Chair of Pattern Recognition and Image Processing, University of Freiburg, Germany.
+https://code.google.com/p/imagej-hdf/
