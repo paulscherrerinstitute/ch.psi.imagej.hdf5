@@ -4,6 +4,7 @@ import ij.Prefs;
 import ij.gui.GenericDialog;
 import ij.plugin.PlugIn;
 
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.*;
 import java.lang.String;
@@ -49,21 +50,14 @@ public class HDF5Config implements PlugIn {
 
 		
 		try {
-			String[] formatTokens = HDF5GroupedVarnames.parseFormatString(groupVarsByNameFormat, dollarRegexpForGrouping);
-			for (int i = 0; i < formatTokens.length; i++) {
-				logger.info("tok " + Integer.toString(i) + " : " + formatTokens[i]);
-			}
+			HDF5GroupedVarnames.parseFormatString(groupVarsByNameFormat, dollarRegexpForGrouping);
 		} catch (PatternSyntaxException e) {
-			// produce an error dialog an start over
-			String errMsg = e.getMessage();
-			logger.info(errMsg);
-			// reset all and return a new dialog
-			configDiag.setVisible(false);
+			logger.log(Level.WARNING, "", e);
 			this.run(arg);
 			return;
 		}
 		
-		logger.info("Saving...");
+		logger.info("Saving configuration ...");
 
 		// All OK and "Save" was pressed, so save it...
 		Prefs.set(GROUP_VARS_BY_NAME, groupVarsByName);
