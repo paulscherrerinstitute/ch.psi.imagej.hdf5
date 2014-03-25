@@ -14,19 +14,29 @@ This plugin requires ImageJ to be run with a Java 7 or greater JVM.
 
 # Usage
 
-Mac OS X:
+## Mac OS X
 
 ```
 java -Djava.library.path=./lib/mac64 -Xmx3048m -jar ImageJ64.app/Contents/Resources/Java/ij.jar
 ```
 
-Linux:
+## Linux
 
 ```
 java -Djava.library.path=./lib/linux64 -Xmx3048m -jar ij.jar
 ```
 
 The `Xmx` setting is quite random it depends on how big hdf5 files you are planning to open.
+
+
+# Fiji
+Fiji currently comes with Java 6 bundled. As the HDF5 Plugin requires Java 7 or higher we have to instruct Fiji to use an alternative Java.
+This can be done as follows: 
+
+```
+cd <FIJI_HOME>
+<fiji> --java-home /usr/lib/jvm/jre-1.7.0-openjdk.x86_64 -Djava.library.path=lib/linux64
+```
 
 # Development
 To create an all in one zip file for installation in a ImageJ installation use: 
