@@ -1,3 +1,16 @@
+# Usage
+
+To open a HDF5 file use:
+
+```
+File > Import > HDF5...
+```
+
+To save to an HDF5 file use:
+```
+File > SaveAs > HDF5
+```
+
 # Installation
 
 * Download latest HDF5 ImageJ plugin from [here](http://slsyoke4.psi.ch:8081/artifactory/releases/HDF5_Viewer-0.2.0.zip).

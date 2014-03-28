@@ -86,95 +86,13 @@ public class HDF5Reader implements PlugIn {
 
 		IJ.showStatus("Loading HDF5 File: " + directory + name);
 
+		
+		// Read HDF5 file
 		H5File inFile = null;
-
-		// define grouping class
-		HDF5GroupedVarnames groupedVarnames = new HDF5GroupedVarnames();
-		boolean loadGroupedVarNames = true;
-
 		try {
 			inFile = new H5File(directory + name, H5File.READ);
 			inFile.open();
 
-			/*-------------------------------------------------------------------
-			 *  read HDF5_Config prefs
-			 *-------------------------------------------------------------------*/
-			HDF5Config config = new HDF5Config();
-			boolean groupVarsByName = config.isGroupVarsByName();
-			boolean showUnmatchedDataSetNames = config.isShowUnmatchedDataSetNames();
-			String groupVarsByNameFormatGroup = config.getGroupVarsByNameFormatGroup();
-			String dollarRegexpForGrouping = config.getDollarRegexpForGrouping();
-
-			
-			// TODO: try to read attribute containing format String
-			String groupVarsByNameFormat = null;
-			try {
-				HObject gr = inFile.get(groupVarsByNameFormatGroup);
-				String attrName = ""; // this will throw an error
-
-				if (gr != null) {
-					// get the attr list and make a selection dialog if
-					// necessary
-					List<Attribute> hintsAttrList = getAttrList(gr);
-					if (hintsAttrList.size() == 1)
-						attrName = hintsAttrList.get(0).getName();
-					else if (hintsAttrList.size() > 1) {
-						String[] hintsAttrNames = new String[hintsAttrList.size()];
-						for (int a = 0; a < hintsAttrList.size(); a++)
-							hintsAttrNames[a] = hintsAttrList.get(a).getName();
-						GenericDialog attrSelecD = new GenericDialog("Format string selector");
-						attrSelecD.addChoice("Select format string", hintsAttrNames, hintsAttrNames[0]);
-						attrSelecD.showDialog();
-						if (attrSelecD.wasCanceled())
-							return;
-						else
-							attrName = attrSelecD.getNextChoice();
-					}
-
-					logger.info("Reading attribute");
-					Attribute attr = getAttribute(gr, attrName);
-					logger.info("Reading attribute is ok");
-					if (attr != null)
-						logger.info("attr is not null");
-					logger.info("attr.getName(): " + attr.getName());
-					Datatype dType = attr.getType();
-					logger.info(dType.getDatatypeDescription());
-
-					Object tmp = attr.getValue();
-					if (tmp != null)
-						logger.info("get value is ok");
-					if (tmp instanceof String) {
-						// we have a string
-						groupVarsByNameFormat = (String) tmp;
-					} else if (tmp instanceof String[]) {
-						// we have a cstring
-						String[] sTmp = (String[]) tmp;
-						groupVarsByNameFormat = "";
-						for (int i = 0; i < sTmp.length; i++)
-							groupVarsByNameFormat = groupVarsByNameFormat + sTmp[i];
-					}
-					logger.info("File has format string for grouping: " + groupVarsByNameFormat);
-				} else {
-					logger.info("File has no format string for grouping" + ", using default");
-					groupVarsByNameFormat = config.getGroupVarsByNameFormat();
-				}
-			} catch (Exception e) {
-				logger.info("Error occured read format string " + "for grouping, using default");
-				groupVarsByNameFormat = config.getGroupVarsByNameFormat();
-			}
-
-			
-
-			/*-------------------------------------------------------------------
-			 *  init the frame and channel ranges
-			 *-------------------------------------------------------------------*/
-			int minFrameIndex = -1;
-			int maxFrameIndex = -1;
-			int skipFrameIndex = 1;
-
-			int minChannelIndex = -1;
-			int maxChannelIndex = -1;
-			int skipChannelIndex = 1;
 
 			/*-------------------------------------------------------------------
 			 *  parse the file
@@ -190,203 +108,6 @@ public class HDF5Reader implements PlugIn {
 				IJ.error("The file did not contain variables. (broken?)");
 				inFile.close();
 				return;
-			}
-			// else if (varList.size() < 2)
-			// {
-			// gd.addCheckbox("single variable", true);
-			// }
-			else if (groupVarsByName) {
-				// parse file structure
-				String[] varNames = new String[varList.size()];
-				for (int i = 0; i < varList.size(); i++) {
-					varNames[i] = varList.get(i).getFullName();
-				}
-				groupedVarnames.parseVarNames(varNames, groupVarsByNameFormat, dollarRegexpForGrouping);
-				logger.info(groupedVarnames.toString());
-
-				// make the data set selection dialog
-				minFrameIndex = groupedVarnames.getMinFrameIndex();
-				maxFrameIndex = groupedVarnames.getMaxFrameIndex();
-				minChannelIndex = groupedVarnames.getMinChannelIndex();
-				maxChannelIndex = groupedVarnames.getMaxChannelIndex();
-
-				gd = new GenericDialog("Variable Name Selection");
-				// check if we have matched var names
-				if (groupedVarnames.getNFrames() > 0) {
-					gd.addCheckbox("Load grouped data sets", loadGroupedVarNames);
-
-					gd.addMessage("Select frames and channels you want to read");
-					gd.addMessage("Frame selection (start/step/end): ");
-
-					gd.addStringField("Frame selection (start:[step:]end): ", Integer.toString(minFrameIndex) + ":" + Integer.toString(skipFrameIndex) + ":" + Integer.toString(maxFrameIndex));
-
-					gd.addStringField("Channel selection (start:[step:]end): ", Integer.toString(minChannelIndex) + ":" + Integer.toString(skipChannelIndex) + ":" + Integer.toString(maxChannelIndex));
-				}
-
-				// get unmatched names
-				List<String> unmatchedVarNames = groupedVarnames.getUnmatchedVarNames();
-				if (showUnmatchedDataSetNames) {
-					// add all unmatched data set names to the dialog
-					String[] varSelections = new String[unmatchedVarNames.size()];
-					boolean[] defaultValues = new boolean[unmatchedVarNames.size()];
-					for (int i = 0; i < unmatchedVarNames.size(); i++) {
-						Dataset var = (Dataset) inFile.get(unmatchedVarNames.get(i));
-						int rank = var.getRank();
-						String title = rank + "D: " + var.getFullName() + "              " + var.getDatatype().getDatatypeDescription() + "( ";
-						long[] extent = var.getDims();
-						for (int d = 0; d < rank; ++d) {
-							if (d != 0)
-								title += "x";
-							title += extent[d];
-						}
-						title += ")";
-						varSelections[i] = title;
-						defaultValues[i] = false;
-					}
-					logger.info("addcheckboxgroup with " + unmatchedVarNames.size() + " rows");
-					gd.addCheckboxGroup(unmatchedVarNames.size(), 1, varSelections, defaultValues);
-					addScrollBars(gd);
-				}
-				gd.showDialog();
-				if (gd.wasCanceled()) {
-					return;
-				}
-
-				// load grouped var names ?
-				if (groupedVarnames.getNFrames() > 0)
-					loadGroupedVarNames = gd.getNextBoolean();
-
-				// read range selections if we have matched varnames
-				String frameRange = null;
-				String channelRange = null;
-				if (groupedVarnames.getNFrames() > 0) {
-					frameRange = gd.getNextString();
-					channelRange = gd.getNextString();
-				}
-				// parse the range selection
-				String[] frameRangeToks = null;
-				String[] channelRangeToks = null;
-				boolean wrongFrameRange = true;
-				boolean wrongChannelRange = true;
-				// check if the parsed values are in range
-				if (groupedVarnames.getNFrames() > 0 && loadGroupedVarNames)
-					while (wrongFrameRange || wrongChannelRange) {
-						// check frame range
-						frameRangeToks = frameRange.split(":");
-						if (frameRangeToks.length == 1) {
-							// single frame
-							try {
-								logger.info("single frame");
-								minFrameIndex = Integer.parseInt(frameRangeToks[0]);
-								maxFrameIndex = minFrameIndex;
-								wrongFrameRange = false;
-							} catch (Exception e) {
-								wrongFrameRange = true;
-							}
-						} else if (frameRangeToks.length == 2) {
-							// frame range with skipFrameIndex=1
-							try {
-								logger.info("frame range with skipFrameIndex=1");
-								minFrameIndex = Integer.parseInt(frameRangeToks[0]);
-								maxFrameIndex = Integer.parseInt(frameRangeToks[1]);
-								wrongFrameRange = false;
-							} catch (Exception e) {
-								wrongFrameRange = true;
-							}
-						} else if (frameRangeToks.length == 3) {
-							// frame range with skipFrameIndex
-							try {
-								logger.info("frame range with skipFrameIndex");
-								minFrameIndex = Integer.parseInt(frameRangeToks[0]);
-								skipFrameIndex = Integer.parseInt(frameRangeToks[1]);
-								maxFrameIndex = Integer.parseInt(frameRangeToks[2]);
-								wrongFrameRange = false;
-							} catch (Exception e) {
-								wrongFrameRange = true;
-							}
-						} else {
-							// wrong format
-							logger.info("wrong format");
-							wrongFrameRange = true;
-						}
-
-						// check channel range
-						channelRangeToks = channelRange.split(":");
-						if (channelRangeToks.length == 1) {
-							// single channel
-							try {
-								minChannelIndex = Integer.parseInt(channelRangeToks[0]);
-								maxChannelIndex = minChannelIndex;
-								wrongChannelRange = false;
-							} catch (Exception e) {
-								wrongChannelRange = true;
-							}
-						} else if (channelRangeToks.length == 2) {
-							// channel range with skipChannelIndex=1
-							try {
-								minChannelIndex = Integer.parseInt(channelRangeToks[0]);
-								maxChannelIndex = Integer.parseInt(channelRangeToks[1]);
-								wrongChannelRange = false;
-							} catch (Exception e) {
-								wrongChannelRange = true;
-							}
-						} else if (channelRangeToks.length == 3) {
-							// channel range with skipChannelIndex
-							try {
-								minChannelIndex = Integer.parseInt(channelRangeToks[0]);
-								skipChannelIndex = Integer.parseInt(channelRangeToks[1]);
-								maxChannelIndex = Integer.parseInt(channelRangeToks[2]);
-								wrongChannelRange = false;
-							} catch (Exception e) {
-								wrongChannelRange = true;
-							}
-						} else {
-							// wrong format
-							wrongChannelRange = true;
-						}
-						if (wrongFrameRange || wrongChannelRange) {
-							// show dialog again
-							logger.info("show dialog again");
-							// TODO reset dialog when possible
-							gd = new GenericDialog("Range Selection");
-							gd.addMessage("Select frames and channels you want to read");
-							gd.addMessage("Frame selection (start/step/end): ");
-
-							gd.addStringField("Frame selection (start:[step:]end): ", Integer.toString(minFrameIndex) + ":" + Integer.toString(skipFrameIndex) + ":" + Integer.toString(maxFrameIndex));
-
-							gd.addStringField("Channel selection (start:[step:]end): ",
-									Integer.toString(minChannelIndex) + ":" + Integer.toString(skipChannelIndex) + ":" + Integer.toString(maxChannelIndex));
-							gd.showDialog();
-							logger.info("read ranges again");
-							frameRange = gd.getNextString();
-							channelRange = gd.getNextString();
-
-						}
-						if (gd.wasCanceled()) {
-							return;
-						}
-						// the parameters for the range have correct format
-					}
-
-				if (showUnmatchedDataSetNames) {
-					varList = new ArrayList<Dataset>();
-					// fill varList with unmatched var names
-					for (int i = 0; i < unmatchedVarNames.size(); i++) {
-						String dsName = unmatchedVarNames.get(i);
-						try {
-							HObject ds = inFile.get(dsName);
-							if (ds != null && ds instanceof Dataset) {
-								varList.add((Dataset) ds);
-							}
-						} catch (Exception e) {
-							logger.info("The file does not contain a variable " + "with name " + "`" + dsName + "`!");
-						}
-					}
-				} else {
-					// set varList=empty if we dont want unmatched var names
-					varList = new ArrayList<Dataset>();
-				}
-
 			} else if (varList.size() > 1000) {
 				
 				logger.info("#######");
@@ -451,302 +172,7 @@ public class HDF5Reader implements PlugIn {
 					return;
 				}
 			}
-			/*-------------------------------------------------------------------
-			 *  now reading data sets
-			 *-------------------------------------------------------------------*/
-			if (groupVarsByName && groupedVarnames.getNFrames() > 0 && loadGroupedVarNames) {
-				groupedVarnames.setFrameAndChannelRange(minFrameIndex, skipFrameIndex, maxFrameIndex, minChannelIndex, skipChannelIndex, maxChannelIndex);
-				// TODO implement hyperstack reading
-				int nFrames = groupedVarnames.getNFrames();
-				int nChannels = groupedVarnames.getNChannels();
-
-				// get extents of first data set
-				long[] extent = null;
-				int rank = -1;
-				double[] elem_sizes = new double[3];
-				String dsName = "";
-				String[] formatTokens = groupedVarnames.getFormatTokens();
-				Dataset var = null;
-				boolean isSigned16Bit = false;
-				int unsignedConvSelec = 0; // cut off values
-				try {
-					TimeFrame f = groupedVarnames.getFrame(0);
-					if (f == null)
-						logger.info("frame is null");
-					if (formatTokens.length == 2)
-						dsName = formatTokens[0] + Integer.toString(f.getFrameIndex()) + formatTokens[1] + Integer.toString(f.getChannelIndices()[0]);
-					else if (formatTokens.length == 3)
-						dsName = formatTokens[0] + Integer.toString(f.getFrameIndex()) + formatTokens[1] + Integer.toString(f.getChannelIndices()[0]) + formatTokens[2];
-					logger.info("VarName: " + dsName);
-					HObject ds = inFile.get(dsName);
-					if (ds != null && ds instanceof Dataset) {
-						var = (Dataset) ds;
-						Datatype dType = var.getDatatype();
-						isSigned16Bit = !dType.isUnsigned() && (dType.getDatatypeClass() == Datatype.CLASS_INTEGER) && (dType.getDatatypeSize() == 2);
-						if (isSigned16Bit) {
-							GenericDialog convDiag = new GenericDialog("Unsigned to signed conversion");
-							convDiag.addMessage("Detected unsigned datatype, which " + "is not supported.");
-							String[] convOptions = new String[2];
-							convOptions[0] = "cut off values";
-							convOptions[1] = "convert to float";
-							convDiag.addChoice("Please select an conversion option:", convOptions, convOptions[0]);
-							convDiag.showDialog();
-							if (convDiag.wasCanceled())
-								return;
-							unsignedConvSelec = convDiag.getNextChoiceIndex();
-						}
-						// TODO check for unsupported datatypes int,long
-						rank = var.getRank();
-						extent = var.getDims();
-						Attribute elemsize_att = getAttribute(var, "element_size_um");
-
-						if (elemsize_att == null) {
-							elem_sizes[0] = 1.0;
-							elem_sizes[1] = 1.0;
-							elem_sizes[2] = 1.0;
-						} else {
-							logger.info("Reading element_size_um");
-							float[] tmp = null;
-							try {
-								tmp = ((float[]) elemsize_att.getValue());
-								elem_sizes[0] = tmp[0];
-								elem_sizes[1] = tmp[1];
-								elem_sizes[2] = tmp[2];
-							} catch (java.lang.ClassCastException e) {
-								String title = "Error Reading Element Size";
-								String msg = "The element_size_um attribute " + "has wrong format!\n";
-								msg += "Setting to default size of (1,1,1)...";
-								new ij.gui.MessageDialog(null, title, msg);
-								elem_sizes[0] = 1;
-								elem_sizes[1] = 1;
-								elem_sizes[2] = 1;
-							}
-						}
-					} else {
-						IJ.error("The file does not contain a variable with name " + "`" + dsName + "`!");
-						inFile.close();
-						return;
-					}
-				} catch (Exception e) {
-					IJ.error("The file does not contain a variable with name " + "`" + dsName + "`!");
-					inFile.close();
-					return;
-				}
-				// String title = rank + "D: " + var.getFullName() +
-				// "              "
-				// + var.getDatatype().getDatatypeDescription() + "( ";
-
-				// read 3D or 2D dataset
-				if (rank == 3 || rank == 2) {
-					int nRows = -1; // height
-					int nCols = -1; // width
-					int nSlices = 1; // if rank == 2
-					if (rank == 3) {
-						nSlices = (int) extent[0];
-						nRows = (int) extent[1];
-						nCols = (int) extent[2];
-					} else {
-						nRows = (int) extent[0];
-						nCols = (int) extent[1];
-					}
-
-					// create a new image stack and fill in the data
-					ImageStack stack = new ImageStack(nCols, nRows, nFrames * nSlices * nChannels);
-					logger.info("stackSize: " + Integer.toString(stack.getSize()));
-
-					ImagePlus imp = new ImagePlus();
-					// to get getFrameIndex() working
-					imp.setDimensions(nChannels, nSlices, nFrames);
-
-					long stackSize = nCols * nRows;
-					// global min max values of all data sets
-					double[] minValChannel = new double[nChannels];
-					double[] maxValChannel = new double[nChannels];
-
-					// TODO implement frame and channel ranges
-					// now read frame by frame
-					for (int fIdx = 0; fIdx < nFrames; fIdx++) {
-						// get current frame
-						TimeFrame f = groupedVarnames.getFrame(fIdx);
-						if (f == null)
-							logger.info("frame is null");
-						// get channel indices
-
-						// TODO: check if frame has same parameters as first,
-						// skip otherwise
-
-						// now read channel by channel of frame
-						for (int cIdx = 0; cIdx < nChannels; cIdx++) {
-							if (formatTokens.length == 2)
-								dsName = formatTokens[0] + Integer.toString(f.getFrameIndex()) + formatTokens[1] + Integer.toString(f.getChannelIndices()[cIdx]);
-							else if (formatTokens.length == 3)
-								dsName = formatTokens[0] + Integer.toString(f.getFrameIndex()) + formatTokens[1] + Integer.toString(f.getChannelIndices()[cIdx]) + formatTokens[2];
-
-							logger.info("VarName: " + dsName);
-
-							HObject ds = inFile.get(dsName);
-							if (ds != null && ds instanceof Dataset) {
-								var = (Dataset) ds;
-								rank = var.getRank();
-								extent = var.getDims();
-							}
-
-							// TODO: check if dataset has same parameters as
-							// first,
-							// skip otherwise
-
-							long[] selected = var.getSelectedDims(); // the
-							// selected
-							// size of
-							// the
-							// dataet
-							selected[0] = extent[0];
-							selected[1] = extent[1];
-							if (selected.length > 2)
-								selected[2] = extent[2];
-
-							Object wholeDataset = var.read();
-							if (isSigned16Bit)
-								wholeDataset = convertToUnsigned(wholeDataset, unsignedConvSelec);
-
-							long wholeDatasetSize = 1;
-							for (int d = 0; d < extent.length; d++)
-								wholeDatasetSize *= extent[d];
-
-							if (fIdx == 0) {
-								// init min/max
-								double[] minMaxVal = getMinMax(wholeDataset, wholeDatasetSize);
-								minValChannel[cIdx] = minMaxVal[0];
-								maxValChannel[cIdx] = minMaxVal[1];
-							} else {
-								// update minMaxVal
-								double[] minMaxVal = getMinMax(wholeDataset, wholeDatasetSize);
-								minValChannel[cIdx] = Math.min(minMaxVal[0], minValChannel[cIdx]);
-								maxValChannel[cIdx] = Math.max(minMaxVal[1], maxValChannel[cIdx]);
-							}
-
-							for (int lev = 0; lev < nSlices; ++lev) {
-								// if ((lev % progressDivisor) == 0)
-								// IJ.showProgress((float) lev / (float)
-								// extent[0]);
-								// select hyperslab for lev
-								// start[0] = lev;
-								// Object slice = var.read();
-
-								long startIdx = lev * stackSize;
-								long numElements = stackSize;
-								if (wholeDataset instanceof byte[]) {
-									byte[] tmp = (byte[]) extractSubarray(wholeDataset, startIdx, numElements);
-									stack.setPixels(tmp, imp.getStackIndex(cIdx + 1, lev + 1, fIdx + 1));
-								} else if (wholeDataset instanceof short[]) {
-									short[] tmp = (short[]) extractSubarray(wholeDataset, startIdx, numElements);
-									stack.setPixels(tmp, imp.getStackIndex(cIdx + 1, lev + 1, fIdx + 1));
-								} else if (wholeDataset instanceof int[]) {
-									logger.info("Datatype `int` is not supported. " + "Skipping whole frame!");
-									// int[] tmp = (int[])
-									// extractSubarray(wholeDataset,
-									// startIdx,
-									// numElements);
-									// if(datatypeIfUnsupported.getDatatypeClass()
-									// == Datatype.CLASS_FLOAT)
-									// {
-									// stack.setPixels(convertInt32ToFloat(tmp),
-									// imp.getStackIndex(cIdx+1,lev+1,fIdx+1));
-									// }
-									// if(datatypeIfUnsupported.getDatatypeClass()
-									// == Datatype.CLASS_INTEGER)
-									// {
-									// stack.setPixels(convertInt32ToShort(tmp),
-									// imp.getStackIndex(cIdx+1,lev+1,fIdx+1));
-									// }
-								} else if (wholeDataset instanceof long[]) {
-									logger.info("Datatype `long` is not supported. " + "Skipping whole frame!");
-									// long[] tmp = (long[])
-									// extractSubarray(wholeDataset,
-									// startIdx,
-									// numElements);
-									// if(datatypeIfUnsupported.getDatatypeClass()
-									// == Datatype.CLASS_FLOAT)
-									// {
-									// stack.setPixels(convertInt64ToFloat(tmp),
-									// imp.getStackIndex(cIdx+1,lev+1,fIdx+1));
-									// }
-									// if(datatypeIfUnsupported.getDatatypeClass()
-									// == Datatype.CLASS_INTEGER)
-									// {
-									// stack.setPixels(convertInt64ToShort(tmp),
-									// imp.getStackIndex(cIdx+1,lev+1,fIdx+1));
-									// }
-								} else if (wholeDataset instanceof float[]) {
-									float[] tmp = (float[]) extractSubarray(wholeDataset, startIdx, numElements);
-									stack.setPixels(tmp, imp.getStackIndex(cIdx + 1, lev + 1, fIdx + 1));
-								} else if (wholeDataset instanceof double[]) {
-									logger.info("Datatype `double` is not supported. " + "Converting whole frame to `float`!");
-									float[] tmp = convertDoubleToFloat((double[]) extractSubarray(wholeDataset, startIdx, numElements));
-									stack.setPixels(tmp, imp.getStackIndex(cIdx + 1, lev + 1, fIdx + 1));
-								} else {
-									// try to put pixels on stack
-									stack.setPixels(extractSubarray(wholeDataset, startIdx, numElements), imp.getStackIndex(cIdx + 1, lev + 1, fIdx + 1));
-								}
-							}
-						}
-					}
-					IJ.showProgress(1.f);
-
-					logger.info("Creating image plus");
-					// stack.trim();
-					imp = new ImagePlus(directory + name + ": " + groupedVarnames.getFormatString(), stack);
-
-					imp.setDimensions(nChannels, nSlices, nFrames);
-
-					if (nChannels > 1) {
-						logger.info("Creating composite hyperstack with " + Integer.toString(nChannels) + " channels.");
-						imp = new CompositeImage(imp, CompositeImage.COMPOSITE);
-					} else {
-						logger.info("Creating grayscale hyperstack.");
-						// imp = new CompositeImage(imp,
-						// CompositeImage.GRAYSCALE);
-					}
-
-					logger.info("nFrames: " + Integer.toString(nFrames));
-					logger.info("nSlices: " + Integer.toString(nSlices));
-
-					logger.info("stackSize: " + Integer.toString(stack.getSize()));
-
-					// set element_size_um
-					imp.getCalibration().pixelDepth = elem_sizes[0];
-					imp.getCalibration().pixelHeight = elem_sizes[1];
-					imp.getCalibration().pixelWidth = elem_sizes[2];
-
-					// logger.info("   Min = " + minMaxVal[0] +
-					// ", Max = " + minMaxVal[1]);
-					// imp.setDisplayRange(1.5*minMaxVal[0], 0.5*minMaxVal[1]);
-					// imp.resetDisplayRange();
-					int[] channelsIJ = { 4, 2, 1 };
-					for (int c = 0; c < nChannels; c++) {
-						// imp.setDisplayRange(minValChannel[c],
-						// maxValChannel[c],
-						// channelsIJ[c]);
-						// imp.setSlice(c+1);
-						imp.setPosition(c + 1, 1, 1);
-						logger.info("Current channel: " + Integer.toString(imp.getChannel() - 1));
-
-						imp.setDisplayRange(minValChannel[c], maxValChannel[c]);
-						// ,
-						// channelsIJ[c]);
-						logger.info("Setting display range for channel " + Integer.toString(c) + " (ij idx: " + Integer.toString(channelsIJ[c]) + "): \n\t" + Double.toString(minValChannel[c])
-								+ "/" + Double.toString(maxValChannel[c]));
-					}
-
-					imp.show();
-					imp.updateStatusbarValue();
-					imp.setOpenAsHyperStack(true);
-				} else {
-					// not supported format
-					IJ.error("The file does not contain a supported data set structure!" + "\nChannels have to be 2D or 3D scalar data sets!");
-				}
-			}
-
+			
 			// varList should have size=0 if only grouping is wanted
 			// use old style
 			for (int i = 0; i < varList.size(); ++i) {
@@ -1766,102 +1192,7 @@ public class HDF5Reader implements PlugIn {
 		return null;
 	}
 
-	
-	private static Attribute getAttribute(HObject ds, String attrName) throws Exception {
-		for(Attribute a: getAttrList(ds)){
-			if (a.getName().equals(attrName)) {
-				return a;
-			}
-		}
-		return null;
-	}
 
-	
-	/**
-	 * Find min and maximum of array
-	 * @param data
-	 * @param stackSize
-	 * @return
-	 */
-	private double[] getMinMax(Object data, long stackSize) {
-		double[] minmax = new double[2];
-
-		if (data instanceof byte[]) {
-			byte[] tmp = (byte[]) data;
-			minmax[0] = tmp[0];
-			minmax[1] = tmp[0];
-			for (int i = 1; i < stackSize; i++) {
-				double val = (double) tmp[i];
-				// we only support unsigned
-				if (tmp[i] < 0)
-					val = (float) Byte.MAX_VALUE - (float) Byte.MIN_VALUE + (float) tmp[i] + 1;
-
-				if (val < minmax[0])
-					minmax[0] = val;
-				if (val > minmax[1])
-					minmax[1] = val;
-			}
-		} else if (data instanceof short[]) {
-			short[] tmp = (short[]) data;
-			minmax[0] = tmp[0];
-			minmax[1] = tmp[0];
-			for (int i = 1; i < stackSize; i++) {
-				double val = (double) tmp[i];
-				// we only support unsigned
-				if (tmp[i] < 0)
-					val = (float) Short.MAX_VALUE - (float) Short.MIN_VALUE + (float) tmp[i] + 1;
-
-				if (val < minmax[0])
-					minmax[0] = val;
-				if (val > minmax[1])
-					minmax[1] = val;
-			}
-		} else if (data instanceof int[]) {
-			int[] tmp = (int[]) data;
-			minmax[0] = tmp[0];
-			minmax[1] = tmp[0];
-			for (int i = 1; i < stackSize; i++) {
-				if (tmp[i] < minmax[0])
-					minmax[0] = tmp[i];
-				if (tmp[i] > minmax[1])
-					minmax[1] = tmp[i];
-			}
-		} else if (data instanceof long[]) {
-			long[] tmp = (long[]) data;
-			minmax[0] = tmp[0];
-			minmax[1] = tmp[0];
-			for (int i = 1; i < stackSize; i++) {
-				if (tmp[i] < minmax[0])
-					minmax[0] = tmp[i];
-				if (tmp[i] > minmax[1])
-					minmax[1] = tmp[i];
-			}
-		} else if (data instanceof float[]) {
-			float[] tmp = (float[]) data;
-			minmax[0] = tmp[0];
-			minmax[1] = tmp[0];
-			for (int i = 1; i < stackSize; i++) {
-				if (tmp[i] < minmax[0])
-					minmax[0] = tmp[i];
-				if (tmp[i] > minmax[1])
-					minmax[1] = tmp[i];
-			}
-		} else if (data instanceof double[]) {
-			double[] tmp = (double[]) data;
-			minmax[0] = tmp[0];
-			minmax[1] = tmp[0];
-			for (int i = 1; i < stackSize; i++) {
-				if (tmp[i] < minmax[0])
-					minmax[0] = tmp[i];
-				if (tmp[i] > minmax[1])
-					minmax[1] = tmp[i];
-			}
-		}
-		logger.info("min: " + minmax[0] + ", max: " + minmax[1]);
-		return minmax;
-	}
-
-	
 	private float[] convertDoubleToFloat(double[] dataIn) {
 		float[] dataOut = new float[dataIn.length];
 		for (int index = 0; index < dataIn.length; index++) {
@@ -1869,7 +1200,6 @@ public class HDF5Reader implements PlugIn {
 		}
 		return dataOut;
 	}
-
 	
 	private float[] convertInt32ToFloat(int[] dataIn) {
 		float[] dataOut = new float[dataIn.length];
@@ -1878,7 +1208,6 @@ public class HDF5Reader implements PlugIn {
 		}
 		return dataOut;
 	}
-
 	
 	private short[] convertInt32ToShort(int[] dataIn) {
 		short[] dataOut = new short[dataIn.length];
@@ -1887,7 +1216,6 @@ public class HDF5Reader implements PlugIn {
 		}
 		return dataOut;
 	}
-
 	
 	private float[] convertInt64ToFloat(long[] dataIn) {
 		float[] dataOut = new float[dataIn.length];
@@ -1897,7 +1225,6 @@ public class HDF5Reader implements PlugIn {
 		return dataOut;
 	}
 
-	
 	private short[] convertInt64ToShort(long[] dataIn) {
 		short[] dataOut = new short[dataIn.length];
 		for (int index = 0; index < dataIn.length; index++) {
@@ -1905,7 +1232,6 @@ public class HDF5Reader implements PlugIn {
 		}
 		return dataOut;
 	}
-
 
 	private Object convertToUnsigned(Object dataIn, int unsignedConvSelec) {
 		Object dataOut = null;
@@ -1931,7 +1257,6 @@ public class HDF5Reader implements PlugIn {
 		}
 		return dataOut;
 	}
-
 
 	private Object extractSubarray(Object data, long startIdx, long numElements) {
 		Object subarray = null;
