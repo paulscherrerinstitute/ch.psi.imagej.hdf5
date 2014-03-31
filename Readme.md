@@ -20,7 +20,7 @@ File > SaveAs > HDF5
 
 # Installation
 
-* Download latest HDF5 ImageJ plugin from [here](http://slsyoke4.psi.ch:8081/artifactory/releases/HDF5_Viewer-0.2.0.zip).
+* Download latest HDF5 ImageJ plugin from [here](http://slsyoke4.psi.ch:8081/artifactory/releases/HDF5_Viewer-0.3.0.zip).
 
 * Go into the ImageJ installation folder and extract the downloaded zip.
 
