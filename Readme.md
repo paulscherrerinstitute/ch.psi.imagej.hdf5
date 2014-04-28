@@ -37,7 +37,8 @@ If you want to configure the HDF5 Reader as a standard file reader you need to r
 This can be done as follows (details on this can be found on: http://albert.rierol.net/imagej_programming_tutorials.html): 
 
 * Add `HandleExtraFileTypes.java` 
-```
+
+```java
 if (name.endsWith(".h5") || name.endsWith(".hdf5")) {
     return tryPlugIn("ch.psi.imagej.hdf5.HDF5Reader", path);
 }
