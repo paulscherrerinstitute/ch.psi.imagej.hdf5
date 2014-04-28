@@ -20,6 +20,7 @@ File > SaveAs > HDF5
 ```
 
 # Installation
+To be able to install this plugin ImageJ need to be run with a Java 7 or greater JVM.
 
 * Download latest HDF5 ImageJ plugin from [here](http://slsyoke4.psi.ch:8081/artifactory/releases/HDF5_Viewer-0.3.0.zip).
 
@@ -30,8 +31,22 @@ cd <IMAGEJ_HOME>
 unzip <path of downloaded zip>
 ```
 
-## Prerequisites
-This plugin requires ImageJ to be run with a Java 7 or greater JVM.
+## Configuration (Optional)
+
+If you want to configure the HDF5 Reader as a standard file reader you need to register the reader within the `HandleExtraFileTypes.java` file.
+This can be done as follows (details on this can be found on: http://albert.rierol.net/imagej_programming_tutorials.html): 
+
+* Add `HandleExtraFileTypes.java` 
+```
+if (name.endsWith(".h5") || name.endsWith(".hdf5")) {
+    return tryPlugIn("ch.psi.imagej.hdf5.HDF5Reader", path);
+}
+```
+
+* Recompile  `HandleExtraFileTypes.java`
+```
+javac -classpath ij.jar ./plugins/Input-Output/HandleExtraFileTypes.java
+```
 
 # Usage
 
