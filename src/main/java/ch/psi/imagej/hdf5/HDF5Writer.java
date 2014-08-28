@@ -75,78 +75,62 @@ public class HDF5Writer implements PlugInFilter {
 
 
 		ImagePlus imp = WindowManager.getCurrentImage();
-
+		int nFrames = imp.getNFrames();
+		int nChannels = imp.getNChannels();
+		int nSlices = imp.getNSlices();
+		int stackSize = imp.getStackSize();
+		int nRows = imp.getHeight();
+		int nCols = imp.getWidth();
+		int imgColorDepth = imp.getBitDepth();
+		int imgColorType = imp.getType();
+		
+		Datatype type = null;
+		if (imgColorType == ImagePlus.GRAY8) {
+			logger.info("   bit depth: " + imgColorDepth + ", type: GRAY8");
+			type = new H5Datatype(Datatype.CLASS_CHAR, Datatype.NATIVE, Datatype.NATIVE, Datatype.SIGN_NONE);
+		} else if (imgColorType == ImagePlus.GRAY16) {
+			logger.info("   bit depth: " + imgColorDepth + ", type: GRAY16");
+			type = new H5Datatype(Datatype.CLASS_INTEGER, 2, Datatype.NATIVE, Datatype.SIGN_NONE);
+		} else if (imgColorType == ImagePlus.GRAY32) {
+			logger.info("   bit depth: " + imgColorDepth + ", type: GRAY32");
+			type = new H5Datatype(Datatype.CLASS_FLOAT, Datatype.NATIVE, Datatype.NATIVE, -1);
+		} else if (imgColorType == ImagePlus.COLOR_RGB) {
+			logger.info("   bit depth: " + imgColorDepth + ", type: COLOR_RGB");
+			type = new H5Datatype(Datatype.CLASS_CHAR, Datatype.NATIVE, Datatype.NATIVE, Datatype.SIGN_NONE);
+		}
+		
 		GenericDialog gd = null;
 		gd = new GenericDialog("Variable Name Selection");
 
 		// check for hyperstack
 		if (imp.getOpenAsHyperStack() || imp.isHyperStack()) {
 			logger.info("This is a hyperstack");
-			boolean splitChannels = true;
-			gd.addCheckbox("Split frames and channels", splitChannels);
 			gd.addStringField(imp.getTitle(), "/t$T/channel$C");
-			String title = imp.getTitle();
-			int nDims = imp.getNDimensions();
-			int nFrames = imp.getNFrames();
-			int nChannels = imp.getNChannels();
-			int nLevs = imp.getNSlices();
-			int nRows = imp.getHeight();
-			int nCols = imp.getWidth();
-			boolean isComposite = imp.isComposite();
-			logger.info("isComposite: " + Boolean.toString(isComposite));
-			logger.info("Saving image \"" + title + "\"");
-			logger.info("nDims: " + Integer.toString(nDims));
-			logger.info("nFrames: " + Integer.toString(nFrames));
-			logger.info("nChannels: " + Integer.toString(nChannels));
-			logger.info("nSlices: " + Integer.toString(nLevs));
-			logger.info("nRows: " + Integer.toString(nRows));
-			logger.info("nCols: " + Integer.toString(nCols));
+			
 			gd.showDialog();
 			if (gd.wasCanceled()) {
 				IJ.error("Plugin canceled!");
 				return;
 			}
-			splitChannels = gd.getNextBoolean();
 			String formatString = gd.getNextString();
-			logger.info("formatString: " + formatString);
-			logger.info("Bitdepth: " + imp.getBitDepth());
-			logger.info("Saving HDF5 File: " + filename);
 
-			int imgColorDepth = imp.getBitDepth();
-			int imgColorType = imp.getType();
-			Datatype type = null;
-			if (imgColorType == ImagePlus.GRAY8) {
-				logger.info("   bit depth: " + imgColorDepth + ", type: GRAY8");
-				type = new H5Datatype(Datatype.CLASS_CHAR, Datatype.NATIVE, Datatype.NATIVE, Datatype.SIGN_NONE);
-			} else if (imgColorType == ImagePlus.GRAY16) {
-				logger.info("   bit depth: " + imgColorDepth + ", type: GRAY16");
-				int typeSizeInByte = 2;
-				type = new H5Datatype(Datatype.CLASS_INTEGER, typeSizeInByte, Datatype.NATIVE, Datatype.SIGN_NONE);
-			} else if (imgColorType == ImagePlus.GRAY32) {
-				logger.info("   bit depth: " + imgColorDepth + ", type: GRAY32");
-//				int typeSizeInByte = 4;
-				type = new H5Datatype(Datatype.CLASS_FLOAT, Datatype.NATIVE, Datatype.NATIVE, -1);
-			}
-
-			// open the outfile
-			H5File outFile = null;
+			// Open the file
 			try {
-				outFile = (H5File) fileFormat.createFile(filename, FileFormat.FILE_CREATE_OPEN);
+				H5File outFile = (H5File) fileFormat.createFile(filename, FileFormat.FILE_CREATE_OPEN);
 				if (!outFile.canWrite()) {
 					IJ.error("File `" + filename + "`is readonly!");
 					return;
 				}
-				// open the file
 				outFile.open();
 
-				if (splitChannels) {
+				// Split frames and channels
 					// parse format string
 					String[] formatTokens = HDF5GroupedVarnames.parseFormatString(formatString, "[0-9]+"); // dummy
 																											// regexp
 					long[] channelDims = null;
-					if (nLevs > 1) {
+					if (nSlices > 1) {
 						channelDims = new long[3];
-						channelDims[0] = nLevs;
+						channelDims[0] = nSlices;
 						channelDims[1] = nRows;
 						channelDims[2] = nCols;
 					} else {
@@ -195,7 +179,7 @@ public class HDF5Writer implements PlugInFilter {
 
 							logger.info("selected.length: " + Integer.toString(selected.length));
 							logger.info("channelDims.length: " + Integer.toString(channelDims.length));
-							if (nLevs == 1) {
+							if (nSlices == 1) {
                                 System.arraycopy(channelDims, 0, selected, 0, selected.length);
 								int stackIndex = imp.getStackIndex(c + 1, 1, f + 1);
 								logger.info("Stackindex: " + Integer.toString(stackIndex));
@@ -211,12 +195,8 @@ public class HDF5Writer implements PlugInFilter {
 							} else {
 								selected[0] = 1;
                                 System.arraycopy(channelDims, 1, selected, 1, selected.length - 1);
-								long[] start = dataset.getStartDims(); // the
-																		// off
-																		// set
-																		// of
-								// the selection
-								for (int lvl = 0; lvl < nLevs; ++lvl) {
+								long[] start = dataset.getStartDims();
+								for (int lvl = 0; lvl < nSlices; ++lvl) {
 									// select hyperslab
 									start[0] = lvl;
 									int stackIndex = imp.getStackIndex(c + 1, lvl + 1, f + 1);
@@ -232,9 +212,6 @@ public class HDF5Writer implements PlugInFilter {
 							}
 						}
 					}
-				} else {
-					// write one big array
-				}
 				outFile.close();
 			} catch (HDF5Exception err) {
 				IJ.error(err.getMessage());
@@ -245,22 +222,6 @@ public class HDF5Writer implements PlugInFilter {
 			}
 		} else {
 			logger.info("This is NO hyperstack");
-			// String title = imp.getTitle();
-			// int nDims = imp.getNDimensions();
-			// int nFrames = imp.getNFrames();
-			// int nChannels = imp.getNChannels();
-			// int nLevs = imp.getNSlices();
-			// int nRows = imp.getHeight();
-			// int nCols = imp.getWidth();
-			// boolean isComposite = imp.isComposite() ;
-			// logger.info("isComposite: "+Boolean.toString(isComposite));
-			// logger.info("Saving image \""+title+"\"");
-			// logger.info("nDims: "+Integer.toString(nDims));
-			// logger.info("nFrames: "+Integer.toString(nFrames));
-			// logger.info("nChannels: "+Integer.toString(nChannels));
-			// logger.info("nSlices: "+Integer.toString(nLevs));
-			// logger.info("nRows: "+Integer.toString(nRows));
-			// logger.info("nCols: "+Integer.toString(nCols));
 
 			gd.addStringField(imp.getTitle(), "");
 			gd.showDialog();
@@ -274,7 +235,8 @@ public class HDF5Writer implements PlugInFilter {
 				IJ.error("No data set name given. Plugin canceled!");
 				return;
 			}
-			// write data set
+			
+			
 			try {
 				H5File outFile = null;
 				try {
@@ -288,12 +250,11 @@ public class HDF5Writer implements PlugInFilter {
 					return;
 				}
 
+				
 				outFile.open();
 				// first create all dimensions and variables
 
 				// Image color depth and color type
-				int imgColorDepth;
-				int imgColorType;
 
 				logger.info("writing data to variable: " + varName);
 
@@ -305,16 +266,12 @@ public class HDF5Writer implements PlugInFilter {
 				// ensure group exists
 				Group group = createGroupRecursive(groupName, null, outFile);
 
-				int nLevels = imp.getStackSize();
-				int nRows = imp.getHeight();
-				int nCols = imp.getWidth();
+				
 
 				// get image type (bit depth)
-				imgColorDepth = imp.getBitDepth();
-				imgColorType = imp.getType();
 				long[] dims;
 				if (imgColorType == ImagePlus.COLOR_RGB || imgColorType == ImagePlus.COLOR_256) {
-					if (nLevels == 1) {
+					if (stackSize == 1) {
 						// color image
 						dims = new long[3];
 						dims[0] = nRows;
@@ -325,13 +282,13 @@ public class HDF5Writer implements PlugInFilter {
 						// have 3.
 						logger.info("adding 4 dimensions");
 						dims = new long[4];
-						dims[0] = nLevels;
+						dims[0] = stackSize;
 						dims[1] = nRows;
 						dims[2] = nCols;
 						dims[3] = 3;
 					}
 				} else {
-					if (nLevels == 1) {
+					if (stackSize == 1) {
 						// color image
 						dims = new long[2];
 						dims[0] = nRows;
@@ -339,52 +296,10 @@ public class HDF5Writer implements PlugInFilter {
 					} else {
 						logger.info("adding 3 dimensions");
 						dims = new long[3];
-						dims[0] = nLevels;
+						dims[0] = stackSize;
 						dims[1] = nRows;
 						dims[2] = nCols;
 					}
-				}
-
-				// The following is a list of a few example of H5Datatype.
-				//
-				// 1. to create unsigned native integer
-				// H5Datatype type = new H5Dataype(CLASS_INTEGER, NATIVE,
-				// NATIVE, SIGN_NONE);
-				// 2. to create 16-bit signed integer with big endian
-				// H5Datatype type = new H5Dataype(CLASS_INTEGER, 2,
-				// ORDER_BE, NATIVE);
-				// 3. to create native float
-				// H5Datatype type = new H5Dataype(CLASS_FLOAT, NATIVE,
-				// NATIVE, -1);
-				// 4. to create 64-bit double
-				// H5Datatype type = new H5Dataype(CLASS_FLOAT, 8, NATIVE,
-				// -1);
-				// H5Datatype type = new
-				// H5Datatype(H5Datatype.CLASS_INTEGER,
-				// H5Datatype.NATIVE, H5Datatype.NATIVE,
-				// H5Datatype.SIGN_NONE);
-				Datatype type = null;
-				// supported data types
-				// FIXME: set the right signed and precision stuff
-				if (imgColorType == ImagePlus.GRAY8) {
-					logger.info("   bit depth: " + imgColorDepth + ", type: GRAY8");
-					type = new H5Datatype(Datatype.CLASS_CHAR, Datatype.NATIVE, Datatype.NATIVE, Datatype.SIGN_NONE);
-				} else if (imgColorType == ImagePlus.GRAY16) {
-					logger.info("   bit depth: " + imgColorDepth + ", type: GRAY16");
-					int typeSizeInByte = 2;
-					type = new H5Datatype(Datatype.CLASS_INTEGER, typeSizeInByte, Datatype.NATIVE, Datatype.SIGN_NONE);
-				} else if (imgColorType == ImagePlus.GRAY32) {
-					logger.info("   bit depth: " + imgColorDepth + ", type: GRAY32");
-//					int typeSizeInByte = 4;
-					type = new H5Datatype(Datatype.CLASS_FLOAT, Datatype.NATIVE, Datatype.NATIVE, -1);
-				} else if (imgColorType == ImagePlus.COLOR_RGB) {
-					logger.info("   bit depth: " + imgColorDepth + ", type: COLOR_RGB");
-					type = new H5Datatype(Datatype.CLASS_CHAR, Datatype.NATIVE, Datatype.NATIVE, Datatype.SIGN_NONE);
-				} else if (imgColorType == ImagePlus.COLOR_256) {
-					// FIXME: not supported yet
-					logger.info("   bit depth: " + imgColorDepth + ", type: COLOR_256");
-					logger.info(" ERROR: untested, this might fail.");
-					type = new H5Datatype(Datatype.CLASS_CHAR, Datatype.NATIVE, Datatype.NATIVE, Datatype.SIGN_NONE);
 				}
 
 				// select hyperslabs
@@ -403,7 +318,6 @@ public class HDF5Writer implements PlugInFilter {
 					dataset = null;
 				}
 				if (dataset == null) {
-
 					dataset = outFile.createScalarDS(dataSetName, group, type, dims, maxdims, chunks, gzip, null);
 				}
 				dataset.init();
@@ -413,12 +327,12 @@ public class HDF5Writer implements PlugInFilter {
 				// the
 				// dataet
 				ImageStack stack = imp.getStack();
-				if (nLevels == 1) {
+				if (stackSize == 1) {
                     System.arraycopy(dims, 0, selected, 0, selected.length);
 					// get raw data
-					Object slice = stack.getPixels(nLevels);
+					Object slice = stack.getPixels(stackSize);
 					if (imgColorType == ImagePlus.COLOR_RGB)
-						slice = computeRgbSlice(stack.getPixels(nLevels));
+						slice = computeRgbSlice(stack.getPixels(stackSize));
 					// write data
 					dataset.write(slice);
 
@@ -427,8 +341,8 @@ public class HDF5Writer implements PlugInFilter {
                     System.arraycopy(dims, 1, selected, 1, selected.length - 1);
 					long[] start = dataset.getStartDims(); // the off set of
 					// the selection
-					for (int lvl = 0; lvl < nLevels; ++lvl) {
-						IJ.showProgress(lvl, nLevels);
+					for (int lvl = 0; lvl < stackSize; ++lvl) {
+						IJ.showProgress(lvl, stackSize);
 						// select hyperslab
 						start[0] = lvl;
 
