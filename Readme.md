@@ -75,6 +75,8 @@ cd <FIJI_HOME>
 <fiji> --java-home /usr/lib/jvm/jre-1.7.0-openjdk.x86_64 -Djava.library.path=lib/linux64
 ```
 
+Starting with Java 8 just the LD_LIBRARY_PATH variable need to be set. For MacOSX it is export `DYLD_LIBRARY_PATH=lib/mac64/:$DYLD_LIBRARY_PATH`.
+
 # Development
 To create an all in one zip file for installation in a ImageJ installation use: 
 `mvn clean compile assembly:assembly`

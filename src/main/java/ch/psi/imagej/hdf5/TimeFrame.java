@@ -32,14 +32,18 @@ public class TimeFrame implements Comparable<TimeFrame> {
 	}
 
 	public String toString() {
-		String s = "FrameIdx: " + Integer.toString(frameIndex) + "; ";
-		s = s + "nChannels: " + Integer.toString(channels.size()) + "; ";
-		s = s + "channels: ";
-		for (int i = 0; i < channels.size(); i++){
-			s = s + Integer.toString(channels.get(i)) + ";";
+		StringBuffer b = new StringBuffer();
+		b.append("FrameIdx: ");
+		b.append(frameIndex);
+		b.append("; nChannels: ");
+		b.append(channels.size());
+		b.append("; Channels: ");
+		for(Integer c: channels){
+			b.append(c);
+			b.append(";");
 		}
-
-		return s;
+		
+		return b.toString();
 	}
 
 	public int getNChannels() {

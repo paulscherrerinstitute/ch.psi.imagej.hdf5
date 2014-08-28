@@ -31,7 +31,10 @@ import ij.process.ImageProcessor;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.awt.*;
@@ -42,19 +45,19 @@ import ncsa.hdf.hdf5lib.exceptions.HDF5Exception;
 
 public class HDF5Reader implements PlugIn {
 	
+	private static final Logger logger = Logger.getLogger(HDF5Reader.class.getName());
 	
 	public static void main(String[] args){
 		HDF5Reader r = new HDF5Reader();
 		r.run("");
 	}
 	
-	private static final Logger logger = Logger.getLogger(HDF5Reader.class.getName());
 	
 	public void run(String arg) {
 		// make sure default values for config are written
 		// HDF5_Config.setDefaultsIfNoValueExists();
 
-		// run plugin
+		// Run plugin
 		String directory = "";
 		String name = "";
 		boolean tryAgain;
@@ -71,7 +74,7 @@ public class HDF5Reader implements PlugIn {
 			name = od.getFileName();
 			if (name == null)
 				return;
-			if (name == "")
+			if (name.equals(""))
 				return;
 
 			File testFile = new File(directory + name);
@@ -93,11 +96,7 @@ public class HDF5Reader implements PlugIn {
 			inFile = new H5File(directory + name, H5File.READ);
 			inFile.open();
 
-
-			/*-------------------------------------------------------------------
-			 *  parse the file
-			 *-------------------------------------------------------------------*/
-
+			// Parse the file
 			Group rootNode = (Group) ((javax.swing.tree.DefaultMutableTreeNode) inFile.getRootNode()).getUserObject();
 			List<Dataset> varList = getDataSetList(rootNode, new ArrayList<Dataset>());
 
@@ -191,7 +190,7 @@ public class HDF5Reader implements PlugIn {
 					logger.info("");
 					IJ.showStatus("Reading Variable: " + var.getName() + " (" + extent[0] + " slices)");
 
-					Attribute elemsize_att = getAttribute(var, "element_size_um");
+					Attribute elemsize_att = getAttributes(var).get("element_size_um");
 					double[] elem_sizes = new double[3];
 					if (elemsize_att == null) {
 						elem_sizes[0] = 1.0;
@@ -219,6 +218,7 @@ public class HDF5Reader implements PlugIn {
 					}
 					logger.info("   Element-Size in um (level,row,col): " + elem_sizes[0] + ", " + elem_sizes[1] + ", " + elem_sizes[2]);
 
+					
 					// nice gadget to update the progress bar
 					long progressDivisor = extent[0] / 50; // we assume 50 process steps
 					if (progressDivisor < 1)
@@ -296,6 +296,7 @@ public class HDF5Reader implements PlugIn {
 
 						long stackSize = extent[2] * extent[3];
 						long singleVolumeSize = extent[1] * stackSize;
+						int size = (int) stackSize;
 
 						for (int volIDX = 0; volIDX < extent[0]; ++volIDX) {
 							if ((volIDX % progressDivisor) == 0)
@@ -306,14 +307,15 @@ public class HDF5Reader implements PlugIn {
 								// select hyperslab for lev
 								// start[1] = lev;
 								// Object slice = var.read();
-								long startIdx = (volIDX * singleVolumeSize * 3) + (lev * stackSize * 3);
-								long numElements = stackSize * 3;
+								int startIdx = (int)((volIDX * singleVolumeSize * 3) + (lev * stackSize * 3));
+//								long numElements = stackSize * 3;
+								int endIdx = (int)(startIdx+stackSize*3-1);
 
 								if (wholeDataset instanceof byte[]) {
-									byte[] tmp = (byte[]) extractSubarray(wholeDataset, startIdx, numElements);
-									byte[] rChannel = new byte[(int) stackSize];
-									byte[] gChannel = new byte[(int) stackSize];
-									byte[] bChannel = new byte[(int) stackSize];
+									byte[] tmp = Arrays.copyOfRange((byte[]) wholeDataset, startIdx, endIdx);
+									byte[] rChannel = new byte[size];
+									byte[] gChannel = new byte[size];
+									byte[] bChannel = new byte[size];
 									for (int row = 0; row < extent[2]; ++row) {
 										for (int col = 0; col < extent[3]; ++col) {
 											int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
@@ -327,10 +329,10 @@ public class HDF5Reader implements PlugIn {
 									stack.addSlice(null, gChannel);
 									stack.addSlice(null, bChannel);
 								} else if (wholeDataset instanceof short[]) {
-									short[] tmp = (short[]) extractSubarray(wholeDataset, startIdx, numElements);
-									short[] rChannel = new short[(int) stackSize];
-									short[] gChannel = new short[(int) stackSize];
-									short[] bChannel = new short[(int) stackSize];
+									short[] tmp = Arrays.copyOfRange((short[]) wholeDataset, startIdx, endIdx);
+									short[] rChannel = new short[size];
+									short[] gChannel = new short[size];
+									short[] bChannel = new short[size];
 									for (int row = 0; row < extent[2]; ++row) {
 										for (int col = 0; col < extent[3]; ++col) {
 											int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
@@ -345,10 +347,10 @@ public class HDF5Reader implements PlugIn {
 									stack.addSlice(null, bChannel);
 								} else if (wholeDataset instanceof int[]) {
 									if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
-										float[] tmp = convertInt32ToFloat((int[]) extractSubarray(wholeDataset, startIdx, numElements));
-										float[] rChannel = new float[(int) stackSize];
-										float[] gChannel = new float[(int) stackSize];
-										float[] bChannel = new float[(int) stackSize];
+										float[] tmp = convertInt32ToFloat(Arrays.copyOfRange((int[]) wholeDataset, startIdx, endIdx));
+										float[] rChannel = new float[size];
+										float[] gChannel = new float[size];
+										float[] bChannel = new float[size];
 										for (int row = 0; row < extent[2]; ++row) {
 											for (int col = 0; col < extent[3]; ++col) {
 												int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
@@ -363,10 +365,10 @@ public class HDF5Reader implements PlugIn {
 										stack.addSlice(null, bChannel);
 									}
 									if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
-										short[] tmp = convertInt32ToShort((int[]) extractSubarray(wholeDataset, startIdx, numElements));
-										short[] rChannel = new short[(int) stackSize];
-										short[] gChannel = new short[(int) stackSize];
-										short[] bChannel = new short[(int) stackSize];
+										short[] tmp = convertInt32ToShort(Arrays.copyOfRange((int[]) wholeDataset, startIdx, endIdx));
+										short[] rChannel = new short[size];
+										short[] gChannel = new short[size];
+										short[] bChannel = new short[size];
 										for (int row = 0; row < extent[2]; ++row) {
 											for (int col = 0; col < extent[3]; ++col) {
 												int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
@@ -382,10 +384,10 @@ public class HDF5Reader implements PlugIn {
 									}
 								} else if (wholeDataset instanceof long[]) {
 									if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
-										float[] tmp = convertInt64ToFloat((long[]) extractSubarray(wholeDataset, startIdx, numElements));
-										float[] rChannel = new float[(int) stackSize];
-										float[] gChannel = new float[(int) stackSize];
-										float[] bChannel = new float[(int) stackSize];
+										float[] tmp = convertInt64ToFloat(Arrays.copyOfRange((long[]) wholeDataset, startIdx, endIdx));
+										float[] rChannel = new float[size];
+										float[] gChannel = new float[size];
+										float[] bChannel = new float[size];
 										for (int row = 0; row < extent[2]; ++row) {
 											for (int col = 0; col < extent[3]; ++col) {
 												int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
@@ -400,10 +402,10 @@ public class HDF5Reader implements PlugIn {
 										stack.addSlice(null, bChannel);
 									}
 									if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
-										short[] tmp = convertInt64ToShort((long[]) extractSubarray(wholeDataset, startIdx, numElements));
-										short[] rChannel = new short[(int) stackSize];
-										short[] gChannel = new short[(int) stackSize];
-										short[] bChannel = new short[(int) stackSize];
+										short[] tmp = convertInt64ToShort(Arrays.copyOfRange((long[]) wholeDataset, startIdx, endIdx));
+										short[] rChannel = new short[size];
+										short[] gChannel = new short[size];
+										short[] bChannel = new short[size];
 										for (int row = 0; row < extent[2]; ++row) {
 											for (int col = 0; col < extent[3]; ++col) {
 												int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
@@ -418,10 +420,10 @@ public class HDF5Reader implements PlugIn {
 										stack.addSlice(null, bChannel);
 									}
 								} else if (wholeDataset instanceof float[]) {
-									float[] tmp = (float[]) extractSubarray(wholeDataset, startIdx, numElements);
-									float[] rChannel = new float[(int) stackSize];
-									float[] gChannel = new float[(int) stackSize];
-									float[] bChannel = new float[(int) stackSize];
+									float[] tmp = Arrays.copyOfRange((float[]) wholeDataset, startIdx, endIdx);
+									float[] rChannel = new float[size];
+									float[] gChannel = new float[size];
+									float[] bChannel = new float[size];
 									for (int row = 0; row < extent[2]; ++row) {
 										for (int col = 0; col < extent[3]; ++col) {
 											int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
@@ -435,10 +437,10 @@ public class HDF5Reader implements PlugIn {
 									stack.addSlice(null, gChannel);
 									stack.addSlice(null, bChannel);
 								} else if (wholeDataset instanceof double[]) {
-									float[] tmp = convertDoubleToFloat((double[]) extractSubarray(wholeDataset, startIdx, numElements));
-									float[] rChannel = new float[(int) stackSize];
-									float[] gChannel = new float[(int) stackSize];
-									float[] bChannel = new float[(int) stackSize];
+									float[] tmp = convertDoubleToFloat(Arrays.copyOfRange((double[]) wholeDataset, startIdx, endIdx));
+									float[] rChannel = new float[size];
+									float[] gChannel = new float[size];
+									float[] bChannel = new float[size];
 									for (int row = 0; row < extent[2]; ++row) {
 										for (int col = 0; col < extent[3]; ++col) {
 											int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
@@ -452,8 +454,7 @@ public class HDF5Reader implements PlugIn {
 									stack.addSlice(null, gChannel);
 									stack.addSlice(null, bChannel);
 								} else {
-									// try to put pixels on stack
-									stack.addSlice(null, extractSubarray(wholeDataset, startIdx, numElements));
+									logger.warning("Datatype not supported");
 								}
 							}
 						}
@@ -537,13 +538,14 @@ public class HDF5Reader implements PlugIn {
 								// start[0] = lev;
 								// Object slice = var.read();
 
-								long startIdx = lev * stackSize;
-								long numElements = stackSize;
-								Object slice = extractSubarray(wholeDataset, startIdx, numElements);
+								int startIdx = (int)(lev * stackSize);
+//								long numElements = stackSize;
+								int endIdx = (int)(startIdx+stackSize-1);
+//								Object slice = extractSubarray(wholeDataset, startIdx, numElements);
 
 								int size = (int) (extent[2] * extent[1]);
-								if (slice instanceof byte[]) {
-									byte[] tmp = (byte[]) slice;
+								if (wholeDataset instanceof byte[]) {
+									byte[] tmp = Arrays.copyOfRange((byte[]) wholeDataset, startIdx, endIdx);
 									byte[] rChannel = new byte[size];
 									byte[] gChannel = new byte[size];
 									byte[] bChannel = new byte[size];
@@ -559,8 +561,8 @@ public class HDF5Reader implements PlugIn {
 									stack.addSlice(null, rChannel);
 									stack.addSlice(null, gChannel);
 									stack.addSlice(null, bChannel);
-								} else if (slice instanceof short[]) {
-									short[] tmp = (short[]) slice;
+								} else if (wholeDataset instanceof short[]) {
+									short[] tmp = Arrays.copyOfRange((short[]) wholeDataset, startIdx, endIdx);
 									short[] rChannel = new short[size];
 									short[] gChannel = new short[size];
 									short[] bChannel = new short[size];
@@ -576,8 +578,8 @@ public class HDF5Reader implements PlugIn {
 									stack.addSlice(null, rChannel);
 									stack.addSlice(null, gChannel);
 									stack.addSlice(null, bChannel);
-								} else if (slice instanceof int[]) {
-									int[] tmp = (int[]) slice;
+								} else if (wholeDataset instanceof int[]) {
+									int[] tmp = Arrays.copyOfRange((int[]) wholeDataset, startIdx, endIdx);
 									int[] rChannel = new int[size];
 									int[] gChannel = new int[size];
 									int[] bChannel = new int[size];
@@ -593,8 +595,8 @@ public class HDF5Reader implements PlugIn {
 									stack.addSlice(null, rChannel);
 									stack.addSlice(null, gChannel);
 									stack.addSlice(null, bChannel);
-								} else if (slice instanceof long[]) {
-									long[] tmp = (long[]) slice;
+								} else if (wholeDataset instanceof long[]) {
+									long[] tmp = Arrays.copyOfRange((long[]) wholeDataset, startIdx, endIdx);
 									long[] rChannel = new long[size];
 									long[] gChannel = new long[size];
 									long[] bChannel = new long[size];
@@ -610,8 +612,8 @@ public class HDF5Reader implements PlugIn {
 									stack.addSlice(null, rChannel);
 									stack.addSlice(null, gChannel);
 									stack.addSlice(null, bChannel);
-								} else if (slice instanceof float[]) {
-									float[] tmp = (float[]) slice;
+								} else if (wholeDataset instanceof float[]) {
+									float[] tmp = Arrays.copyOfRange((float[]) wholeDataset, startIdx, endIdx);
 									float[] rChannel = new float[size];
 									float[] gChannel = new float[size];
 									float[] bChannel = new float[size];
@@ -627,8 +629,8 @@ public class HDF5Reader implements PlugIn {
 									stack.addSlice(null, rChannel);
 									stack.addSlice(null, gChannel);
 									stack.addSlice(null, bChannel);
-								} else if (slice instanceof double[]) {
-									double[] tmp = (double[]) slice;
+								} else if (wholeDataset instanceof double[]) {
+									double[] tmp = Arrays.copyOfRange((double[]) wholeDataset, startIdx, endIdx);
 									double[] rChannel = new double[size];
 									double[] gChannel = new double[size];
 									double[] bChannel = new double[size];
@@ -716,17 +718,18 @@ public class HDF5Reader implements PlugIn {
 									// select hyperslab for lev
 									// start[1] = lev;
 									// Object slice = var.read();
-									long startIdx = (volIDX * singleVolumeSize) + (lev * stackSize);
-									long numElements = stackSize;
+									int startIdx = (int)((volIDX * singleVolumeSize) + (lev * stackSize));
+									int endIdx = (int)(startIdx+stackSize-1);
+//									long numElements = stackSize;
 
 									if (wholeDataset instanceof byte[]) {
-										byte[] tmp = (byte[]) extractSubarray(wholeDataset, startIdx, numElements);
+										byte[] tmp = Arrays.copyOfRange((byte[]) wholeDataset, startIdx, endIdx);
 										stack.addSlice(null, tmp);
 									} else if (wholeDataset instanceof short[]) {
-										short[] tmp = (short[]) extractSubarray(wholeDataset, startIdx, numElements);
+										short[] tmp = Arrays.copyOfRange((short[]) wholeDataset, startIdx, endIdx);
 										stack.addSlice(null, tmp);
 									} else if (wholeDataset instanceof int[]) {
-										int[] tmp = (int[]) extractSubarray(wholeDataset, startIdx, numElements);
+										int[] tmp = Arrays.copyOfRange((int[]) wholeDataset, startIdx, endIdx);
 										if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
 											stack.addSlice(null, convertInt32ToFloat(tmp));
 										}
@@ -734,7 +737,7 @@ public class HDF5Reader implements PlugIn {
 											stack.addSlice(null, convertInt32ToShort(tmp));
 										}
 									} else if (wholeDataset instanceof long[]) {
-										long[] tmp = (long[]) extractSubarray(wholeDataset, startIdx, numElements);
+										long[] tmp = Arrays.copyOfRange((long[]) wholeDataset, startIdx, endIdx);
 										if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
 											stack.addSlice(null, convertInt64ToFloat(tmp));
 										}
@@ -742,14 +745,13 @@ public class HDF5Reader implements PlugIn {
 											stack.addSlice(null, convertInt64ToShort(tmp));
 										}
 									} else if (wholeDataset instanceof float[]) {
-										float[] tmp = (float[]) extractSubarray(wholeDataset, startIdx, numElements);
+										float[] tmp = Arrays.copyOfRange((float[]) wholeDataset, startIdx, endIdx);
 										stack.addSlice(null, tmp);
 									} else if (wholeDataset instanceof double[]) {
-										float[] tmp = convertDoubleToFloat((double[]) extractSubarray(wholeDataset, startIdx, numElements));
+										float[] tmp = convertDoubleToFloat(Arrays.copyOfRange((double[]) wholeDataset, startIdx, endIdx));
 										stack.addSlice(null, tmp);
 									} else {
-										// try to put pixels on stack
-										stack.addSlice(null, extractSubarray(wholeDataset, startIdx, numElements));
+										logger.warning("Datatype not supported");
 									}
 								}
 							}
@@ -760,12 +762,12 @@ public class HDF5Reader implements PlugIn {
 							int nChannels = 1;
 							int nSlices = (int) extent[1];
 							int nFrames = (int) extent[0];
-							Integer nFramesI = new Integer(nFrames);
-							Integer nSlicesI = new Integer(nSlices);
+							Integer nFramesI = nFrames;
+							Integer nSlicesI = nSlices;
 							logger.info("nFrames: " + nFramesI.toString());
 							logger.info("nSlices: " + nSlicesI.toString());
 
-							Integer myStackSize = new Integer(stack.getSize());
+							Integer myStackSize = stack.getSize();
 							logger.info("stackSize: " + myStackSize.toString());
 
 							imp.setDimensions(nChannels, nSlices, nFrames);
@@ -977,16 +979,17 @@ public class HDF5Reader implements PlugIn {
 							// start[0] = lev;
 							// Object slice = var.read();
 
-							long startIdx = lev * stackSize;
-							long numElements = stackSize;
+							int startIdx = (int)(lev * stackSize);
+							int endIdx = (int)(startIdx+stackSize-1);
+//							long numElements = stackSize;
 							if (wholeDataset instanceof byte[]) {
-								byte[] tmp = (byte[]) extractSubarray(wholeDataset, startIdx, numElements);
+								byte[] tmp = Arrays.copyOfRange((byte[]) wholeDataset, startIdx, endIdx);
 								stack.addSlice(null, tmp);
 							} else if (wholeDataset instanceof short[]) {
-								short[] tmp = (short[]) extractSubarray(wholeDataset, startIdx, numElements);
+								short[] tmp = Arrays.copyOfRange((short[]) wholeDataset, startIdx, endIdx);
 								stack.addSlice(null, tmp);
 							} else if (wholeDataset instanceof int[]) {
-								int[] tmp = (int[]) extractSubarray(wholeDataset, startIdx, numElements);
+								int[] tmp = Arrays.copyOfRange((int[]) wholeDataset, startIdx, endIdx);
 								if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
 									stack.addSlice(null, convertInt32ToFloat(tmp));
 								}
@@ -994,7 +997,8 @@ public class HDF5Reader implements PlugIn {
 									stack.addSlice(null, convertInt32ToShort(tmp));
 								}
 							} else if (wholeDataset instanceof long[]) {
-								long[] tmp = (long[]) extractSubarray(wholeDataset, startIdx, numElements);
+								
+								long[] tmp = Arrays.copyOfRange((long[]) wholeDataset, startIdx, endIdx);
 								if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
 									stack.addSlice(null, convertInt64ToFloat(tmp));
 								}
@@ -1002,14 +1006,13 @@ public class HDF5Reader implements PlugIn {
 									stack.addSlice(null, convertInt64ToShort(tmp));
 								}
 							} else if (wholeDataset instanceof float[]) {
-								float[] tmp = (float[]) extractSubarray(wholeDataset, startIdx, numElements);
+								float[] tmp = Arrays.copyOfRange((float[]) wholeDataset, startIdx, endIdx);
 								stack.addSlice(null, tmp);
 							} else if (wholeDataset instanceof double[]) {
-								float[] tmp = convertDoubleToFloat((double[]) extractSubarray(wholeDataset, startIdx, numElements));
+								float[] tmp = convertDoubleToFloat(Arrays.copyOfRange((double[]) wholeDataset, startIdx, endIdx));
 								stack.addSlice(null, tmp);
 							} else {
-								// try to put pixels on stack
-								stack.addSlice(null, extractSubarray(wholeDataset, startIdx, numElements));
+								logger.warning("Not supported array type");
 							}
 						}
 						IJ.showProgress(1.f);
@@ -1131,6 +1134,7 @@ public class HDF5Reader implements PlugIn {
 		} catch (OutOfMemoryError o) {
 			IJ.outOfMemory("Load HDF5");
 		}
+		
 		// make sure the file is closed after working with it
 		// FIXME: should happen in catch-part, too!
 		try {
@@ -1145,54 +1149,56 @@ public class HDF5Reader implements PlugIn {
 		IJ.showProgress(1.0);
 	}
 
-	
-	private static List<Dataset> getDataSetList(Group g, List<Dataset> datasets) throws Exception {
-		if (g == null){
+	/**
+	 * Recursively get list of all datasets in file
+	 * @param group		Group to search for datasets
+	 * @param datasets	List of datasets
+	 * @return	List of datasets or null if group is null
+	 */
+	private List<Dataset> getDataSetList(Group group, List<Dataset> datasets) {
+		if (group == null){
 			return datasets;
 		}
 
-		List<HObject> members = g.getMemberList();
-		for (HObject obj: members) {
-			if (obj instanceof Dataset) {
-				((Dataset) obj).init();
-				datasets.add((Dataset) obj);
-			} else if (obj instanceof Group) {
-				datasets = (getDataSetList((Group) obj, datasets));
+		for (HObject o: group.getMemberList()) {
+			if (o instanceof Dataset) {
+				((Dataset) o).init();
+				datasets.add((Dataset) o);
+			} else if (o instanceof Group) {
+				datasets = (getDataSetList((Group) o, datasets));
 			}
 		}
 		return datasets;
 	}
 
 	
-	private static List<Attribute> getAttrList(HObject ds) throws Exception {
-		if (ds == null){
+	/**
+	 * Get attributes from object
+	 * @param object	Object to retrieve the attributes from
+	 * @return			Map of attributes or null if an error occurred while retrieving the attributes or the passed object is null
+	 */
+	private Map<String,Attribute> getAttributes(HObject object) {
+		if (object == null){
 			return null;
 		}
 
-		List<Attribute> attributes = new ArrayList<Attribute>();
-		List<?> members = ds.getMetadata();
-		int n = members.size();
-		Metadata obj = null;
-		for (int i = 0; i < n; i++) {
-			obj = (Metadata) members.get(i);
-			if (obj instanceof Attribute) {
-					attributes.add((Attribute) obj);
+		Map<String, Attribute> attributes = new HashMap<>();
+		try{
+			for(Object m: object.getMetadata()){
+				if(m instanceof Attribute){
+					attributes.put(((Attribute) m).getName(), (Attribute) m);
+				}
 			}
 		}
+		catch(Exception e){
+			logger.warning("Unable to retrieve metadata from object");
+			return null;
+		}
+		
 		return attributes;
 	}
 
 	
-	private static Attribute getAttribute(Dataset ds, String attrName) throws Exception {
-		for(Attribute a: getAttrList((HObject) ds)){
-			if (a.getName().equals(attrName)) {
-				return a;
-			}
-		}
-		return null;
-	}
-
-
 	private float[] convertDoubleToFloat(double[] dataIn) {
 		float[] dataOut = new float[dataIn.length];
 		for (int index = 0; index < dataIn.length; index++) {
@@ -1201,36 +1207,37 @@ public class HDF5Reader implements PlugIn {
 		return dataOut;
 	}
 	
-	private float[] convertInt32ToFloat(int[] dataIn) {
-		float[] dataOut = new float[dataIn.length];
-		for (int index = 0; index < dataIn.length; index++) {
-			dataOut[index] = dataIn[index];
+	
+	private float[] convertInt32ToFloat(int[] array) {
+		float[] narray = new float[array.length];
+		for (int index = 0; index < array.length; index++) {
+			narray[index] = array[index];
 		}
-		return dataOut;
+		return narray;
 	}
 	
-	private short[] convertInt32ToShort(int[] dataIn) {
-		short[] dataOut = new short[dataIn.length];
-		for (int index = 0; index < dataIn.length; index++) {
-			dataOut[index] = (short) dataIn[index];
+	private short[] convertInt32ToShort(int[] array) {
+		short[] narray = new short[array.length];
+		for (int index = 0; index < array.length; index++) {
+			narray[index] = (short) array[index];
 		}
-		return dataOut;
+		return narray;
 	}
 	
-	private float[] convertInt64ToFloat(long[] dataIn) {
-		float[] dataOut = new float[dataIn.length];
-		for (int index = 0; index < dataIn.length; index++) {
-			dataOut[index] = dataIn[index];
+	private float[] convertInt64ToFloat(long[] array) {
+		float[] narray = new float[array.length];
+		for (int index = 0; index < array.length; index++) {
+			narray[index] = array[index];
 		}
-		return dataOut;
+		return narray;
 	}
 
-	private short[] convertInt64ToShort(long[] dataIn) {
-		short[] dataOut = new short[dataIn.length];
-		for (int index = 0; index < dataIn.length; index++) {
-			dataOut[index] = (short) dataIn[index];
+	private short[] convertInt64ToShort(long[] array) {
+		short[] narray = new short[array.length];
+		for (int index = 0; index < array.length; index++) {
+			narray[index] = (short) array[index];
 		}
-		return dataOut;
+		return narray;
 	}
 
 	private Object convertToUnsigned(Object dataIn, int unsignedConvSelec) {
@@ -1256,43 +1263,6 @@ public class HDF5Reader implements PlugIn {
 			}
 		}
 		return dataOut;
-	}
-
-	private Object extractSubarray(Object data, long startIdx, long numElements) {
-		Object subarray = null;
-
-		if (data instanceof byte[]) {
-			subarray = new byte[(int) numElements];
-			for (long idx = startIdx; idx < startIdx + numElements; idx++) {
-				((byte[]) subarray)[(int) (idx - startIdx)] = ((byte[]) data)[(int) (idx)];
-			}
-		} else if (data instanceof short[]) {
-			subarray = new short[(int) numElements];
-			for (long idx = startIdx; idx < startIdx + numElements; idx++) {
-				((short[]) subarray)[(int) (idx - startIdx)] = ((short[]) data)[(int) (idx)];
-			}
-		} else if (data instanceof int[]) {
-			subarray = new int[(int) numElements];
-			for (long idx = startIdx; idx < startIdx + numElements; idx++) {
-				((int[]) subarray)[(int) (idx - startIdx)] = ((int[]) data)[(int) (idx)];
-			}
-		} else if (data instanceof long[]) {
-			subarray = new long[(int) numElements];
-			for (long idx = startIdx; idx < startIdx + numElements; idx++) {
-				((long[]) subarray)[(int) (idx - startIdx)] = ((long[]) data)[(int) (idx)];
-			}
-		} else if (data instanceof float[]) {
-			subarray = new float[(int) numElements];
-			for (long idx = startIdx; idx < startIdx + numElements; idx++) {
-				((float[]) subarray)[(int) (idx - startIdx)] = ((float[]) data)[(int) (idx)];
-			}
-		} else if (data instanceof double[]) {
-			subarray = new double[(int) numElements];
-			for (long idx = startIdx; idx < startIdx + numElements; idx++) {
-				((double[]) subarray)[(int) (idx - startIdx)] = ((double[]) data)[(int) (idx)];
-			}
-		}
-		return subarray;
 	}
 
 	/** Adds AWT scroll bars to the given container. */
