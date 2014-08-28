@@ -132,7 +132,7 @@ public class HDF5GroupedVarnames {
 				TimeFrame frame = new TimeFrame(frameIndex.intValue());
 				int idx = frameList.indexOf(frame);
 				if (idx != -1) {
-					frame = (TimeFrame) frameList.get(idx);
+					frame = frameList.get(idx);
 					frame.addChannel(channelIndex.intValue());
 				} else {
 					frame.addChannel(channelIndex.intValue());

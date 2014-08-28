@@ -32,9 +32,7 @@ import ij.process.ImageProcessor;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.awt.*;
@@ -98,7 +96,7 @@ public class HDF5Reader implements PlugIn {
 
 			// Parse the file
 			Group rootNode = (Group) ((javax.swing.tree.DefaultMutableTreeNode) inFile.getRootNode()).getUserObject();
-			List<Dataset> varList = getDataSetList(rootNode, new ArrayList<Dataset>());
+			List<Dataset> varList = getDatasets(rootNode, new ArrayList<Dataset>());
 
 			GenericDialog gd = new GenericDialog("Variable Name Selection");
 			gd.addMessage("Please select variables to be loaded.\n");
@@ -190,7 +188,7 @@ public class HDF5Reader implements PlugIn {
 					logger.info("");
 					IJ.showStatus("Reading Variable: " + var.getName() + " (" + extent[0] + " slices)");
 
-					Attribute elemsize_att = getAttributes(var).get("element_size_um");
+					Attribute elemsize_att = HDF5Utilities.getAttributes(var).get("element_size_um");
 					double[] elem_sizes = new double[3];
 					if (elemsize_att == null) {
 						elem_sizes[0] = 1.0;
@@ -311,151 +309,7 @@ public class HDF5Reader implements PlugIn {
 //								long numElements = stackSize * 3;
 								int endIdx = (int)(startIdx+stackSize*3-1);
 
-								if (wholeDataset instanceof byte[]) {
-									byte[] tmp = Arrays.copyOfRange((byte[]) wholeDataset, startIdx, endIdx);
-									byte[] rChannel = new byte[size];
-									byte[] gChannel = new byte[size];
-									byte[] bChannel = new byte[size];
-									for (int row = 0; row < extent[2]; ++row) {
-										for (int col = 0; col < extent[3]; ++col) {
-											int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-											int offset = (row * (int) extent[2]) + col;
-											rChannel[offset] = tmp[offsetRGB + 0];
-											gChannel[offset] = tmp[offsetRGB + 1];
-											bChannel[offset] = tmp[offsetRGB + 2];
-										}
-									}
-									stack.addSlice(null, rChannel);
-									stack.addSlice(null, gChannel);
-									stack.addSlice(null, bChannel);
-								} else if (wholeDataset instanceof short[]) {
-									short[] tmp = Arrays.copyOfRange((short[]) wholeDataset, startIdx, endIdx);
-									short[] rChannel = new short[size];
-									short[] gChannel = new short[size];
-									short[] bChannel = new short[size];
-									for (int row = 0; row < extent[2]; ++row) {
-										for (int col = 0; col < extent[3]; ++col) {
-											int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-											int offset = (row * (int) extent[2]) + col;
-											rChannel[offset] = tmp[offsetRGB + 0];
-											gChannel[offset] = tmp[offsetRGB + 1];
-											bChannel[offset] = tmp[offsetRGB + 2];
-										}
-									}
-									stack.addSlice(null, rChannel);
-									stack.addSlice(null, gChannel);
-									stack.addSlice(null, bChannel);
-								} else if (wholeDataset instanceof int[]) {
-									if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
-										float[] tmp = convertInt32ToFloat(Arrays.copyOfRange((int[]) wholeDataset, startIdx, endIdx));
-										float[] rChannel = new float[size];
-										float[] gChannel = new float[size];
-										float[] bChannel = new float[size];
-										for (int row = 0; row < extent[2]; ++row) {
-											for (int col = 0; col < extent[3]; ++col) {
-												int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-												int offset = (row * (int) extent[2]) + col;
-												rChannel[offset] = tmp[offsetRGB + 0];
-												gChannel[offset] = tmp[offsetRGB + 1];
-												bChannel[offset] = tmp[offsetRGB + 2];
-											}
-										}
-										stack.addSlice(null, rChannel);
-										stack.addSlice(null, gChannel);
-										stack.addSlice(null, bChannel);
-									}
-									if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
-										short[] tmp = convertInt32ToShort(Arrays.copyOfRange((int[]) wholeDataset, startIdx, endIdx));
-										short[] rChannel = new short[size];
-										short[] gChannel = new short[size];
-										short[] bChannel = new short[size];
-										for (int row = 0; row < extent[2]; ++row) {
-											for (int col = 0; col < extent[3]; ++col) {
-												int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-												int offset = (row * (int) extent[2]) + col;
-												rChannel[offset] = tmp[offsetRGB + 0];
-												gChannel[offset] = tmp[offsetRGB + 1];
-												bChannel[offset] = tmp[offsetRGB + 2];
-											}
-										}
-										stack.addSlice(null, rChannel);
-										stack.addSlice(null, gChannel);
-										stack.addSlice(null, bChannel);
-									}
-								} else if (wholeDataset instanceof long[]) {
-									if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
-										float[] tmp = convertInt64ToFloat(Arrays.copyOfRange((long[]) wholeDataset, startIdx, endIdx));
-										float[] rChannel = new float[size];
-										float[] gChannel = new float[size];
-										float[] bChannel = new float[size];
-										for (int row = 0; row < extent[2]; ++row) {
-											for (int col = 0; col < extent[3]; ++col) {
-												int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-												int offset = (row * (int) extent[2]) + col;
-												rChannel[offset] = tmp[offsetRGB + 0];
-												gChannel[offset] = tmp[offsetRGB + 1];
-												bChannel[offset] = tmp[offsetRGB + 2];
-											}
-										}
-										stack.addSlice(null, rChannel);
-										stack.addSlice(null, gChannel);
-										stack.addSlice(null, bChannel);
-									}
-									if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
-										short[] tmp = convertInt64ToShort(Arrays.copyOfRange((long[]) wholeDataset, startIdx, endIdx));
-										short[] rChannel = new short[size];
-										short[] gChannel = new short[size];
-										short[] bChannel = new short[size];
-										for (int row = 0; row < extent[2]; ++row) {
-											for (int col = 0; col < extent[3]; ++col) {
-												int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-												int offset = (row * (int) extent[2]) + col;
-												rChannel[offset] = tmp[offsetRGB + 0];
-												gChannel[offset] = tmp[offsetRGB + 1];
-												bChannel[offset] = tmp[offsetRGB + 2];
-											}
-										}
-										stack.addSlice(null, rChannel);
-										stack.addSlice(null, gChannel);
-										stack.addSlice(null, bChannel);
-									}
-								} else if (wholeDataset instanceof float[]) {
-									float[] tmp = Arrays.copyOfRange((float[]) wholeDataset, startIdx, endIdx);
-									float[] rChannel = new float[size];
-									float[] gChannel = new float[size];
-									float[] bChannel = new float[size];
-									for (int row = 0; row < extent[2]; ++row) {
-										for (int col = 0; col < extent[3]; ++col) {
-											int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-											int offset = (row * (int) extent[2]) + col;
-											rChannel[offset] = tmp[offsetRGB + 0];
-											gChannel[offset] = tmp[offsetRGB + 1];
-											bChannel[offset] = tmp[offsetRGB + 2];
-										}
-									}
-									stack.addSlice(null, rChannel);
-									stack.addSlice(null, gChannel);
-									stack.addSlice(null, bChannel);
-								} else if (wholeDataset instanceof double[]) {
-									float[] tmp = convertDoubleToFloat(Arrays.copyOfRange((double[]) wholeDataset, startIdx, endIdx));
-									float[] rChannel = new float[size];
-									float[] gChannel = new float[size];
-									float[] bChannel = new float[size];
-									for (int row = 0; row < extent[2]; ++row) {
-										for (int col = 0; col < extent[3]; ++col) {
-											int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-											int offset = (row * (int) extent[2]) + col;
-											rChannel[offset] = tmp[offsetRGB + 0];
-											gChannel[offset] = tmp[offsetRGB + 1];
-											bChannel[offset] = tmp[offsetRGB + 2];
-										}
-									}
-									stack.addSlice(null, rChannel);
-									stack.addSlice(null, gChannel);
-									stack.addSlice(null, bChannel);
-								} else {
-									logger.warning("Datatype not supported");
-								}
+								copyPixels3(datatypeIfUnsupported, extent, stack, wholeDataset, size, startIdx, endIdx);
 							}
 						}
 
@@ -544,109 +398,7 @@ public class HDF5Reader implements PlugIn {
 //								Object slice = extractSubarray(wholeDataset, startIdx, numElements);
 
 								int size = (int) (extent[2] * extent[1]);
-								if (wholeDataset instanceof byte[]) {
-									byte[] tmp = Arrays.copyOfRange((byte[]) wholeDataset, startIdx, endIdx);
-									byte[] rChannel = new byte[size];
-									byte[] gChannel = new byte[size];
-									byte[] bChannel = new byte[size];
-									for (int row = 0; row < extent[1]; ++row) {
-										for (int col = 0; col < extent[2]; ++col) {
-											int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-											int offset = (row * (int) extent[2]) + col;
-											rChannel[offset] = tmp[offsetRGB + 0];
-											gChannel[offset] = tmp[offsetRGB + 1];
-											bChannel[offset] = tmp[offsetRGB + 2];
-										}
-									}
-									stack.addSlice(null, rChannel);
-									stack.addSlice(null, gChannel);
-									stack.addSlice(null, bChannel);
-								} else if (wholeDataset instanceof short[]) {
-									short[] tmp = Arrays.copyOfRange((short[]) wholeDataset, startIdx, endIdx);
-									short[] rChannel = new short[size];
-									short[] gChannel = new short[size];
-									short[] bChannel = new short[size];
-									for (int row = 0; row < extent[1]; ++row) {
-										for (int col = 0; col < extent[2]; ++col) {
-											int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-											int offset = (row * (int) extent[2]) + col;
-											rChannel[offset] = tmp[offsetRGB + 0];
-											gChannel[offset] = tmp[offsetRGB + 1];
-											bChannel[offset] = tmp[offsetRGB + 2];
-										}
-									}
-									stack.addSlice(null, rChannel);
-									stack.addSlice(null, gChannel);
-									stack.addSlice(null, bChannel);
-								} else if (wholeDataset instanceof int[]) {
-									int[] tmp = Arrays.copyOfRange((int[]) wholeDataset, startIdx, endIdx);
-									int[] rChannel = new int[size];
-									int[] gChannel = new int[size];
-									int[] bChannel = new int[size];
-									for (int row = 0; row < extent[1]; ++row) {
-										for (int col = 0; col < extent[2]; ++col) {
-											int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-											int offset = (row * (int) extent[2]) + col;
-											rChannel[offset] = tmp[offsetRGB + 0];
-											gChannel[offset] = tmp[offsetRGB + 1];
-											bChannel[offset] = tmp[offsetRGB + 2];
-										}
-									}
-									stack.addSlice(null, rChannel);
-									stack.addSlice(null, gChannel);
-									stack.addSlice(null, bChannel);
-								} else if (wholeDataset instanceof long[]) {
-									long[] tmp = Arrays.copyOfRange((long[]) wholeDataset, startIdx, endIdx);
-									long[] rChannel = new long[size];
-									long[] gChannel = new long[size];
-									long[] bChannel = new long[size];
-									for (int row = 0; row < extent[1]; ++row) {
-										for (int col = 0; col < extent[2]; ++col) {
-											int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-											int offset = (row * (int) extent[2]) + col;
-											rChannel[offset] = tmp[offsetRGB + 0];
-											gChannel[offset] = tmp[offsetRGB + 1];
-											bChannel[offset] = tmp[offsetRGB + 2];
-										}
-									}
-									stack.addSlice(null, rChannel);
-									stack.addSlice(null, gChannel);
-									stack.addSlice(null, bChannel);
-								} else if (wholeDataset instanceof float[]) {
-									float[] tmp = Arrays.copyOfRange((float[]) wholeDataset, startIdx, endIdx);
-									float[] rChannel = new float[size];
-									float[] gChannel = new float[size];
-									float[] bChannel = new float[size];
-									for (int row = 0; row < extent[1]; ++row) {
-										for (int col = 0; col < extent[2]; ++col) {
-											int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-											int offset = (row * (int) extent[2]) + col;
-											rChannel[offset] = tmp[offsetRGB + 0];
-											gChannel[offset] = tmp[offsetRGB + 1];
-											bChannel[offset] = tmp[offsetRGB + 2];
-										}
-									}
-									stack.addSlice(null, rChannel);
-									stack.addSlice(null, gChannel);
-									stack.addSlice(null, bChannel);
-								} else if (wholeDataset instanceof double[]) {
-									double[] tmp = Arrays.copyOfRange((double[]) wholeDataset, startIdx, endIdx);
-									double[] rChannel = new double[size];
-									double[] gChannel = new double[size];
-									double[] bChannel = new double[size];
-									for (int row = 0; row < extent[1]; ++row) {
-										for (int col = 0; col < extent[2]; ++col) {
-											int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-											int offset = (row * (int) extent[2]) + col;
-											rChannel[offset] = tmp[offsetRGB + 0];
-											gChannel[offset] = tmp[offsetRGB + 1];
-											bChannel[offset] = tmp[offsetRGB + 2];
-										}
-									}
-									stack.addSlice(null, rChannel);
-									stack.addSlice(null, gChannel);
-									stack.addSlice(null, bChannel);
-								}
+								copyPixel1(extent, stack, wholeDataset, startIdx, endIdx, size);
 							}
 							ImagePlus imp = new ImagePlus(directory + name + " " + var.getName(), stack);
 							// new for hyperstack
@@ -722,37 +474,7 @@ public class HDF5Reader implements PlugIn {
 									int endIdx = (int)(startIdx+stackSize-1);
 //									long numElements = stackSize;
 
-									if (wholeDataset instanceof byte[]) {
-										byte[] tmp = Arrays.copyOfRange((byte[]) wholeDataset, startIdx, endIdx);
-										stack.addSlice(null, tmp);
-									} else if (wholeDataset instanceof short[]) {
-										short[] tmp = Arrays.copyOfRange((short[]) wholeDataset, startIdx, endIdx);
-										stack.addSlice(null, tmp);
-									} else if (wholeDataset instanceof int[]) {
-										int[] tmp = Arrays.copyOfRange((int[]) wholeDataset, startIdx, endIdx);
-										if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
-											stack.addSlice(null, convertInt32ToFloat(tmp));
-										}
-										if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
-											stack.addSlice(null, convertInt32ToShort(tmp));
-										}
-									} else if (wholeDataset instanceof long[]) {
-										long[] tmp = Arrays.copyOfRange((long[]) wholeDataset, startIdx, endIdx);
-										if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
-											stack.addSlice(null, convertInt64ToFloat(tmp));
-										}
-										if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
-											stack.addSlice(null, convertInt64ToShort(tmp));
-										}
-									} else if (wholeDataset instanceof float[]) {
-										float[] tmp = Arrays.copyOfRange((float[]) wholeDataset, startIdx, endIdx);
-										stack.addSlice(null, tmp);
-									} else if (wholeDataset instanceof double[]) {
-										float[] tmp = convertDoubleToFloat(Arrays.copyOfRange((double[]) wholeDataset, startIdx, endIdx));
-										stack.addSlice(null, tmp);
-									} else {
-										logger.warning("Datatype not supported");
-									}
+									convertDatatypesAndSlice(datatypeIfUnsupported, stack, wholeDataset, startIdx, endIdx);
 								}
 							}
 
@@ -816,109 +538,8 @@ public class HDF5Reader implements PlugIn {
 						int size = (int) (extent[1] * extent[0]);
 
 						// ugly but working: copy pixel by pixel
-						if (slice instanceof byte[]) {
-							byte[] tmp = (byte[]) slice;
-							byte[] rChannel = new byte[size];
-							byte[] gChannel = new byte[size];
-							byte[] bChannel = new byte[size];
-							for (int row = 0; row < extent[0]; ++row) {
-								for (int col = 0; col < extent[1]; ++col) {
-									int offsetRGB = (row * (int) extent[1] * 3) + (col * 3);
-									int offset = (row * (int) extent[1]) + col;
-									rChannel[offset] = tmp[offsetRGB + 0];
-									gChannel[offset] = tmp[offsetRGB + 1];
-									bChannel[offset] = tmp[offsetRGB + 2];
-								}
-							}
-							stack.addSlice(null, rChannel);
-							stack.addSlice(null, gChannel);
-							stack.addSlice(null, bChannel);
-						} else if (slice instanceof short[]) {
-							short[] tmp = (short[]) slice;
-							short[] rChannel = new short[size];
-							short[] gChannel = new short[size];
-							short[] bChannel = new short[size];
-							for (int row = 0; row < extent[0]; ++row) {
-								for (int col = 0; col < extent[1]; ++col) {
-									int offsetRGB = (row * (int) extent[1] * 3) + (col * 3);
-									int offset = (row * (int) extent[1]) + col;
-									rChannel[offset] = tmp[offsetRGB + 0];
-									gChannel[offset] = tmp[offsetRGB + 1];
-									bChannel[offset] = tmp[offsetRGB + 2];
-								}
-							}
-							stack.addSlice(null, rChannel);
-							stack.addSlice(null, gChannel);
-							stack.addSlice(null, bChannel);
-						} else if (slice instanceof int[]) {
-							int[] tmp = (int[]) slice;
-							int[] rChannel = new int[size];
-							int[] gChannel = new int[size];
-							int[] bChannel = new int[size];
-							for (int row = 0; row < extent[0]; ++row) {
-								for (int col = 0; col < extent[1]; ++col) {
-									int offsetRGB = (row * (int) extent[1] * 3) + (col * 3);
-									int offset = (row * (int) extent[1]) + col;
-									rChannel[offset] = tmp[offsetRGB + 0];
-									gChannel[offset] = tmp[offsetRGB + 1];
-									bChannel[offset] = tmp[offsetRGB + 2];
-								}
-							}
-							stack.addSlice(null, rChannel);
-							stack.addSlice(null, gChannel);
-							stack.addSlice(null, bChannel);
-						} else if (slice instanceof long[]) {
-							long[] tmp = (long[]) slice;
-							long[] rChannel = new long[size];
-							long[] gChannel = new long[size];
-							long[] bChannel = new long[size];
-							for (int row = 0; row < extent[0]; ++row) {
-								for (int col = 0; col < extent[1]; ++col) {
-									int offsetRGB = (row * (int) extent[1] * 3) + (col * 3);
-									int offset = (row * (int) extent[1]) + col;
-									rChannel[offset] = tmp[offsetRGB + 0];
-									gChannel[offset] = tmp[offsetRGB + 1];
-									bChannel[offset] = tmp[offsetRGB + 2];
-								}
-							}
-							stack.addSlice(null, rChannel);
-							stack.addSlice(null, gChannel);
-							stack.addSlice(null, bChannel);
-						} else if (slice instanceof float[]) {
-							float[] tmp = (float[]) slice;
-							float[] rChannel = new float[size];
-							float[] gChannel = new float[size];
-							float[] bChannel = new float[size];
-							for (int row = 0; row < extent[0]; ++row) {
-								for (int col = 0; col < extent[1]; ++col) {
-									int offsetRGB = (row * (int) extent[1] * 3) + (col * 3);
-									int offset = (row * (int) extent[1]) + col;
-									rChannel[offset] = tmp[offsetRGB + 0];
-									gChannel[offset] = tmp[offsetRGB + 1];
-									bChannel[offset] = tmp[offsetRGB + 2];
-								}
-							}
-							stack.addSlice(null, rChannel);
-							stack.addSlice(null, gChannel);
-							stack.addSlice(null, bChannel);
-						} else if (slice instanceof double[]) {
-							double[] tmp = (double[]) slice;
-							double[] rChannel = new double[size];
-							double[] gChannel = new double[size];
-							double[] bChannel = new double[size];
-							for (int row = 0; row < extent[0]; ++row) {
-								for (int col = 0; col < extent[1]; ++col) {
-									int offsetRGB = (row * (int) extent[1] * 3) + (col * 3);
-									int offset = (row * (int) extent[1]) + col;
-									rChannel[offset] = tmp[offsetRGB + 0];
-									gChannel[offset] = tmp[offsetRGB + 1];
-									bChannel[offset] = tmp[offsetRGB + 2];
-								}
-							}
-							stack.addSlice(null, rChannel);
-							stack.addSlice(null, gChannel);
-							stack.addSlice(null, bChannel);
-						}
+						copyPixels(extent, stack, slice, size);
+						
 						IJ.showProgress(1.f);
 						ImagePlus imp = new ImagePlus(directory + name + " " + var.getName(), stack);
 						// new for hyperstack
@@ -982,38 +603,7 @@ public class HDF5Reader implements PlugIn {
 							int startIdx = (int)(lev * stackSize);
 							int endIdx = (int)(startIdx+stackSize-1);
 //							long numElements = stackSize;
-							if (wholeDataset instanceof byte[]) {
-								byte[] tmp = Arrays.copyOfRange((byte[]) wholeDataset, startIdx, endIdx);
-								stack.addSlice(null, tmp);
-							} else if (wholeDataset instanceof short[]) {
-								short[] tmp = Arrays.copyOfRange((short[]) wholeDataset, startIdx, endIdx);
-								stack.addSlice(null, tmp);
-							} else if (wholeDataset instanceof int[]) {
-								int[] tmp = Arrays.copyOfRange((int[]) wholeDataset, startIdx, endIdx);
-								if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
-									stack.addSlice(null, convertInt32ToFloat(tmp));
-								}
-								if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
-									stack.addSlice(null, convertInt32ToShort(tmp));
-								}
-							} else if (wholeDataset instanceof long[]) {
-								
-								long[] tmp = Arrays.copyOfRange((long[]) wholeDataset, startIdx, endIdx);
-								if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
-									stack.addSlice(null, convertInt64ToFloat(tmp));
-								}
-								if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
-									stack.addSlice(null, convertInt64ToShort(tmp));
-								}
-							} else if (wholeDataset instanceof float[]) {
-								float[] tmp = Arrays.copyOfRange((float[]) wholeDataset, startIdx, endIdx);
-								stack.addSlice(null, tmp);
-							} else if (wholeDataset instanceof double[]) {
-								float[] tmp = convertDoubleToFloat(Arrays.copyOfRange((double[]) wholeDataset, startIdx, endIdx));
-								stack.addSlice(null, tmp);
-							} else {
-								logger.warning("Not supported array type");
-							}
+							convertDatatypesAndSlice(datatypeIfUnsupported, stack, wholeDataset, startIdx, endIdx);
 						}
 						IJ.showProgress(1.f);
 						ImagePlus imp = new ImagePlus(directory + name + " " + var.getName(), stack);
@@ -1149,13 +739,440 @@ public class HDF5Reader implements PlugIn {
 		IJ.showProgress(1.0);
 	}
 
+
+	/**
+	 * @param datatypeIfUnsupported
+	 * @param stack
+	 * @param wholeDataset
+	 * @param startIdx
+	 * @param endIdx
+	 */
+	private void convertDatatypesAndSlice(Datatype datatypeIfUnsupported, ImageStack stack, Object wholeDataset, int startIdx, int endIdx) {
+		if (wholeDataset instanceof byte[]) {
+			byte[] tmp = Arrays.copyOfRange((byte[]) wholeDataset, startIdx, endIdx);
+			stack.addSlice(null, tmp);
+		} else if (wholeDataset instanceof short[]) {
+			short[] tmp = Arrays.copyOfRange((short[]) wholeDataset, startIdx, endIdx);
+			stack.addSlice(null, tmp);
+		} else if (wholeDataset instanceof int[]) {
+			int[] tmp = Arrays.copyOfRange((int[]) wholeDataset, startIdx, endIdx);
+			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
+				stack.addSlice(null, convertInt32ToFloat(tmp));
+			}
+			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
+				stack.addSlice(null, convertInt32ToShort(tmp));
+			}
+		} else if (wholeDataset instanceof long[]) {
+			long[] tmp = Arrays.copyOfRange((long[]) wholeDataset, startIdx, endIdx);
+			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
+				stack.addSlice(null, convertInt64ToFloat(tmp));
+			}
+			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
+				stack.addSlice(null, convertInt64ToShort(tmp));
+			}
+		} else if (wholeDataset instanceof float[]) {
+			float[] tmp = Arrays.copyOfRange((float[]) wholeDataset, startIdx, endIdx);
+			stack.addSlice(null, tmp);
+		} else if (wholeDataset instanceof double[]) {
+			float[] tmp = convertDoubleToFloat(Arrays.copyOfRange((double[]) wholeDataset, startIdx, endIdx));
+			stack.addSlice(null, tmp);
+		} else {
+			logger.warning("Not supported array type");
+		}
+	}
+
+	/**
+	 * @param datatypeIfUnsupported
+	 * @param extent
+	 * @param stack
+	 * @param wholeDataset
+	 * @param size
+	 * @param startIdx
+	 * @param endIdx
+	 */
+	private void copyPixels3(Datatype datatypeIfUnsupported, long[] extent, ImageStack stack, Object wholeDataset, int size, int startIdx, int endIdx) {
+		if (wholeDataset instanceof byte[]) {
+			byte[] tmp = Arrays.copyOfRange((byte[]) wholeDataset, startIdx, endIdx);
+			byte[] rChannel = new byte[size];
+			byte[] gChannel = new byte[size];
+			byte[] bChannel = new byte[size];
+			for (int row = 0; row < extent[2]; ++row) {
+				for (int col = 0; col < extent[3]; ++col) {
+					int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
+					int offset = (row * (int) extent[2]) + col;
+					rChannel[offset] = tmp[offsetRGB + 0];
+					gChannel[offset] = tmp[offsetRGB + 1];
+					bChannel[offset] = tmp[offsetRGB + 2];
+				}
+			}
+			stack.addSlice(null, rChannel);
+			stack.addSlice(null, gChannel);
+			stack.addSlice(null, bChannel);
+		} else if (wholeDataset instanceof short[]) {
+			short[] tmp = Arrays.copyOfRange((short[]) wholeDataset, startIdx, endIdx);
+			short[] rChannel = new short[size];
+			short[] gChannel = new short[size];
+			short[] bChannel = new short[size];
+			for (int row = 0; row < extent[2]; ++row) {
+				for (int col = 0; col < extent[3]; ++col) {
+					int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
+					int offset = (row * (int) extent[2]) + col;
+					rChannel[offset] = tmp[offsetRGB + 0];
+					gChannel[offset] = tmp[offsetRGB + 1];
+					bChannel[offset] = tmp[offsetRGB + 2];
+				}
+			}
+			stack.addSlice(null, rChannel);
+			stack.addSlice(null, gChannel);
+			stack.addSlice(null, bChannel);
+		} else if (wholeDataset instanceof int[]) {
+			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
+				float[] tmp = convertInt32ToFloat(Arrays.copyOfRange((int[]) wholeDataset, startIdx, endIdx));
+				float[] rChannel = new float[size];
+				float[] gChannel = new float[size];
+				float[] bChannel = new float[size];
+				for (int row = 0; row < extent[2]; ++row) {
+					for (int col = 0; col < extent[3]; ++col) {
+						int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
+						int offset = (row * (int) extent[2]) + col;
+						rChannel[offset] = tmp[offsetRGB + 0];
+						gChannel[offset] = tmp[offsetRGB + 1];
+						bChannel[offset] = tmp[offsetRGB + 2];
+					}
+				}
+				stack.addSlice(null, rChannel);
+				stack.addSlice(null, gChannel);
+				stack.addSlice(null, bChannel);
+			}
+			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
+				short[] tmp = convertInt32ToShort(Arrays.copyOfRange((int[]) wholeDataset, startIdx, endIdx));
+				short[] rChannel = new short[size];
+				short[] gChannel = new short[size];
+				short[] bChannel = new short[size];
+				for (int row = 0; row < extent[2]; ++row) {
+					for (int col = 0; col < extent[3]; ++col) {
+						int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
+						int offset = (row * (int) extent[2]) + col;
+						rChannel[offset] = tmp[offsetRGB + 0];
+						gChannel[offset] = tmp[offsetRGB + 1];
+						bChannel[offset] = tmp[offsetRGB + 2];
+					}
+				}
+				stack.addSlice(null, rChannel);
+				stack.addSlice(null, gChannel);
+				stack.addSlice(null, bChannel);
+			}
+		} else if (wholeDataset instanceof long[]) {
+			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
+				float[] tmp = convertInt64ToFloat(Arrays.copyOfRange((long[]) wholeDataset, startIdx, endIdx));
+				float[] rChannel = new float[size];
+				float[] gChannel = new float[size];
+				float[] bChannel = new float[size];
+				for (int row = 0; row < extent[2]; ++row) {
+					for (int col = 0; col < extent[3]; ++col) {
+						int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
+						int offset = (row * (int) extent[2]) + col;
+						rChannel[offset] = tmp[offsetRGB + 0];
+						gChannel[offset] = tmp[offsetRGB + 1];
+						bChannel[offset] = tmp[offsetRGB + 2];
+					}
+				}
+				stack.addSlice(null, rChannel);
+				stack.addSlice(null, gChannel);
+				stack.addSlice(null, bChannel);
+			}
+			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
+				short[] tmp = convertInt64ToShort(Arrays.copyOfRange((long[]) wholeDataset, startIdx, endIdx));
+				short[] rChannel = new short[size];
+				short[] gChannel = new short[size];
+				short[] bChannel = new short[size];
+				for (int row = 0; row < extent[2]; ++row) {
+					for (int col = 0; col < extent[3]; ++col) {
+						int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
+						int offset = (row * (int) extent[2]) + col;
+						rChannel[offset] = tmp[offsetRGB + 0];
+						gChannel[offset] = tmp[offsetRGB + 1];
+						bChannel[offset] = tmp[offsetRGB + 2];
+					}
+				}
+				stack.addSlice(null, rChannel);
+				stack.addSlice(null, gChannel);
+				stack.addSlice(null, bChannel);
+			}
+		} else if (wholeDataset instanceof float[]) {
+			float[] tmp = Arrays.copyOfRange((float[]) wholeDataset, startIdx, endIdx);
+			float[] rChannel = new float[size];
+			float[] gChannel = new float[size];
+			float[] bChannel = new float[size];
+			for (int row = 0; row < extent[2]; ++row) {
+				for (int col = 0; col < extent[3]; ++col) {
+					int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
+					int offset = (row * (int) extent[2]) + col;
+					rChannel[offset] = tmp[offsetRGB + 0];
+					gChannel[offset] = tmp[offsetRGB + 1];
+					bChannel[offset] = tmp[offsetRGB + 2];
+				}
+			}
+			stack.addSlice(null, rChannel);
+			stack.addSlice(null, gChannel);
+			stack.addSlice(null, bChannel);
+		} else if (wholeDataset instanceof double[]) {
+			float[] tmp = convertDoubleToFloat(Arrays.copyOfRange((double[]) wholeDataset, startIdx, endIdx));
+			float[] rChannel = new float[size];
+			float[] gChannel = new float[size];
+			float[] bChannel = new float[size];
+			for (int row = 0; row < extent[2]; ++row) {
+				for (int col = 0; col < extent[3]; ++col) {
+					int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
+					int offset = (row * (int) extent[2]) + col;
+					rChannel[offset] = tmp[offsetRGB + 0];
+					gChannel[offset] = tmp[offsetRGB + 1];
+					bChannel[offset] = tmp[offsetRGB + 2];
+				}
+			}
+			stack.addSlice(null, rChannel);
+			stack.addSlice(null, gChannel);
+			stack.addSlice(null, bChannel);
+		} else {
+			logger.warning("Datatype not supported");
+		}
+	}
+
+
+	/**
+	 * @param extent
+	 * @param stack
+	 * @param slice
+	 * @param size
+	 */
+	private void copyPixels(long[] extent, ImageStack stack, Object slice, int size) {
+		if (slice instanceof byte[]) {
+			byte[] tmp = (byte[]) slice;
+			byte[] rChannel = new byte[size];
+			byte[] gChannel = new byte[size];
+			byte[] bChannel = new byte[size];
+			for (int row = 0; row < extent[0]; ++row) {
+				for (int col = 0; col < extent[1]; ++col) {
+					int offsetRGB = (row * (int) extent[1] * 3) + (col * 3);
+					int offset = (row * (int) extent[1]) + col;
+					rChannel[offset] = tmp[offsetRGB + 0];
+					gChannel[offset] = tmp[offsetRGB + 1];
+					bChannel[offset] = tmp[offsetRGB + 2];
+				}
+			}
+			stack.addSlice(null, rChannel);
+			stack.addSlice(null, gChannel);
+			stack.addSlice(null, bChannel);
+		} else if (slice instanceof short[]) {
+			short[] tmp = (short[]) slice;
+			short[] rChannel = new short[size];
+			short[] gChannel = new short[size];
+			short[] bChannel = new short[size];
+			for (int row = 0; row < extent[0]; ++row) {
+				for (int col = 0; col < extent[1]; ++col) {
+					int offsetRGB = (row * (int) extent[1] * 3) + (col * 3);
+					int offset = (row * (int) extent[1]) + col;
+					rChannel[offset] = tmp[offsetRGB + 0];
+					gChannel[offset] = tmp[offsetRGB + 1];
+					bChannel[offset] = tmp[offsetRGB + 2];
+				}
+			}
+			stack.addSlice(null, rChannel);
+			stack.addSlice(null, gChannel);
+			stack.addSlice(null, bChannel);
+		} else if (slice instanceof int[]) {
+			int[] tmp = (int[]) slice;
+			int[] rChannel = new int[size];
+			int[] gChannel = new int[size];
+			int[] bChannel = new int[size];
+			for (int row = 0; row < extent[0]; ++row) {
+				for (int col = 0; col < extent[1]; ++col) {
+					int offsetRGB = (row * (int) extent[1] * 3) + (col * 3);
+					int offset = (row * (int) extent[1]) + col;
+					rChannel[offset] = tmp[offsetRGB + 0];
+					gChannel[offset] = tmp[offsetRGB + 1];
+					bChannel[offset] = tmp[offsetRGB + 2];
+				}
+			}
+			stack.addSlice(null, rChannel);
+			stack.addSlice(null, gChannel);
+			stack.addSlice(null, bChannel);
+		} else if (slice instanceof long[]) {
+			long[] tmp = (long[]) slice;
+			long[] rChannel = new long[size];
+			long[] gChannel = new long[size];
+			long[] bChannel = new long[size];
+			for (int row = 0; row < extent[0]; ++row) {
+				for (int col = 0; col < extent[1]; ++col) {
+					int offsetRGB = (row * (int) extent[1] * 3) + (col * 3);
+					int offset = (row * (int) extent[1]) + col;
+					rChannel[offset] = tmp[offsetRGB + 0];
+					gChannel[offset] = tmp[offsetRGB + 1];
+					bChannel[offset] = tmp[offsetRGB + 2];
+				}
+			}
+			stack.addSlice(null, rChannel);
+			stack.addSlice(null, gChannel);
+			stack.addSlice(null, bChannel);
+		} else if (slice instanceof float[]) {
+			float[] tmp = (float[]) slice;
+			float[] rChannel = new float[size];
+			float[] gChannel = new float[size];
+			float[] bChannel = new float[size];
+			for (int row = 0; row < extent[0]; ++row) {
+				for (int col = 0; col < extent[1]; ++col) {
+					int offsetRGB = (row * (int) extent[1] * 3) + (col * 3);
+					int offset = (row * (int) extent[1]) + col;
+					rChannel[offset] = tmp[offsetRGB + 0];
+					gChannel[offset] = tmp[offsetRGB + 1];
+					bChannel[offset] = tmp[offsetRGB + 2];
+				}
+			}
+			stack.addSlice(null, rChannel);
+			stack.addSlice(null, gChannel);
+			stack.addSlice(null, bChannel);
+		} else if (slice instanceof double[]) {
+			double[] tmp = (double[]) slice;
+			double[] rChannel = new double[size];
+			double[] gChannel = new double[size];
+			double[] bChannel = new double[size];
+			for (int row = 0; row < extent[0]; ++row) {
+				for (int col = 0; col < extent[1]; ++col) {
+					int offsetRGB = (row * (int) extent[1] * 3) + (col * 3);
+					int offset = (row * (int) extent[1]) + col;
+					rChannel[offset] = tmp[offsetRGB + 0];
+					gChannel[offset] = tmp[offsetRGB + 1];
+					bChannel[offset] = tmp[offsetRGB + 2];
+				}
+			}
+			stack.addSlice(null, rChannel);
+			stack.addSlice(null, gChannel);
+			stack.addSlice(null, bChannel);
+		}
+	}
+
+
+	/**
+	 * @param extent
+	 * @param stack
+	 * @param wholeDataset
+	 * @param startIdx
+	 * @param endIdx
+	 * @param size
+	 */
+	private void copyPixel1(long[] extent, ImageStack stack, Object wholeDataset, int startIdx, int endIdx, int size) {
+		if (wholeDataset instanceof byte[]) {
+			byte[] tmp = Arrays.copyOfRange((byte[]) wholeDataset, startIdx, endIdx);
+			byte[] rChannel = new byte[size];
+			byte[] gChannel = new byte[size];
+			byte[] bChannel = new byte[size];
+			for (int row = 0; row < extent[1]; ++row) {
+				for (int col = 0; col < extent[2]; ++col) {
+					int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
+					int offset = (row * (int) extent[2]) + col;
+					rChannel[offset] = tmp[offsetRGB + 0];
+					gChannel[offset] = tmp[offsetRGB + 1];
+					bChannel[offset] = tmp[offsetRGB + 2];
+				}
+			}
+			stack.addSlice(null, rChannel);
+			stack.addSlice(null, gChannel);
+			stack.addSlice(null, bChannel);
+		} else if (wholeDataset instanceof short[]) {
+			short[] tmp = Arrays.copyOfRange((short[]) wholeDataset, startIdx, endIdx);
+			short[] rChannel = new short[size];
+			short[] gChannel = new short[size];
+			short[] bChannel = new short[size];
+			for (int row = 0; row < extent[1]; ++row) {
+				for (int col = 0; col < extent[2]; ++col) {
+					int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
+					int offset = (row * (int) extent[2]) + col;
+					rChannel[offset] = tmp[offsetRGB + 0];
+					gChannel[offset] = tmp[offsetRGB + 1];
+					bChannel[offset] = tmp[offsetRGB + 2];
+				}
+			}
+			stack.addSlice(null, rChannel);
+			stack.addSlice(null, gChannel);
+			stack.addSlice(null, bChannel);
+		} else if (wholeDataset instanceof int[]) {
+			int[] tmp = Arrays.copyOfRange((int[]) wholeDataset, startIdx, endIdx);
+			int[] rChannel = new int[size];
+			int[] gChannel = new int[size];
+			int[] bChannel = new int[size];
+			for (int row = 0; row < extent[1]; ++row) {
+				for (int col = 0; col < extent[2]; ++col) {
+					int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
+					int offset = (row * (int) extent[2]) + col;
+					rChannel[offset] = tmp[offsetRGB + 0];
+					gChannel[offset] = tmp[offsetRGB + 1];
+					bChannel[offset] = tmp[offsetRGB + 2];
+				}
+			}
+			stack.addSlice(null, rChannel);
+			stack.addSlice(null, gChannel);
+			stack.addSlice(null, bChannel);
+		} else if (wholeDataset instanceof long[]) {
+			long[] tmp = Arrays.copyOfRange((long[]) wholeDataset, startIdx, endIdx);
+			long[] rChannel = new long[size];
+			long[] gChannel = new long[size];
+			long[] bChannel = new long[size];
+			for (int row = 0; row < extent[1]; ++row) {
+				for (int col = 0; col < extent[2]; ++col) {
+					int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
+					int offset = (row * (int) extent[2]) + col;
+					rChannel[offset] = tmp[offsetRGB + 0];
+					gChannel[offset] = tmp[offsetRGB + 1];
+					bChannel[offset] = tmp[offsetRGB + 2];
+				}
+			}
+			stack.addSlice(null, rChannel);
+			stack.addSlice(null, gChannel);
+			stack.addSlice(null, bChannel);
+		} else if (wholeDataset instanceof float[]) {
+			float[] tmp = Arrays.copyOfRange((float[]) wholeDataset, startIdx, endIdx);
+			float[] rChannel = new float[size];
+			float[] gChannel = new float[size];
+			float[] bChannel = new float[size];
+			for (int row = 0; row < extent[1]; ++row) {
+				for (int col = 0; col < extent[2]; ++col) {
+					int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
+					int offset = (row * (int) extent[2]) + col;
+					rChannel[offset] = tmp[offsetRGB + 0];
+					gChannel[offset] = tmp[offsetRGB + 1];
+					bChannel[offset] = tmp[offsetRGB + 2];
+				}
+			}
+			stack.addSlice(null, rChannel);
+			stack.addSlice(null, gChannel);
+			stack.addSlice(null, bChannel);
+		} else if (wholeDataset instanceof double[]) {
+			double[] tmp = Arrays.copyOfRange((double[]) wholeDataset, startIdx, endIdx);
+			double[] rChannel = new double[size];
+			double[] gChannel = new double[size];
+			double[] bChannel = new double[size];
+			for (int row = 0; row < extent[1]; ++row) {
+				for (int col = 0; col < extent[2]; ++col) {
+					int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
+					int offset = (row * (int) extent[2]) + col;
+					rChannel[offset] = tmp[offsetRGB + 0];
+					gChannel[offset] = tmp[offsetRGB + 1];
+					bChannel[offset] = tmp[offsetRGB + 2];
+				}
+			}
+			stack.addSlice(null, rChannel);
+			stack.addSlice(null, gChannel);
+			stack.addSlice(null, bChannel);
+		}
+	}
+
 	/**
 	 * Recursively get list of all datasets in file
 	 * @param group		Group to search for datasets
 	 * @param datasets	List of datasets
 	 * @return	List of datasets or null if group is null
 	 */
-	private List<Dataset> getDataSetList(Group group, List<Dataset> datasets) {
+	private List<Dataset> getDatasets(Group group, List<Dataset> datasets) {
 		if (group == null){
 			return datasets;
 		}
@@ -1165,38 +1182,14 @@ public class HDF5Reader implements PlugIn {
 				((Dataset) o).init();
 				datasets.add((Dataset) o);
 			} else if (o instanceof Group) {
-				datasets = (getDataSetList((Group) o, datasets));
+				datasets = (getDatasets((Group) o, datasets));
 			}
 		}
 		return datasets;
 	}
 
 	
-	/**
-	 * Get attributes from object
-	 * @param object	Object to retrieve the attributes from
-	 * @return			Map of attributes or null if an error occurred while retrieving the attributes or the passed object is null
-	 */
-	private Map<String,Attribute> getAttributes(HObject object) {
-		if (object == null){
-			return null;
-		}
-
-		Map<String, Attribute> attributes = new HashMap<>();
-		try{
-			for(Object m: object.getMetadata()){
-				if(m instanceof Attribute){
-					attributes.put(((Attribute) m).getName(), (Attribute) m);
-				}
-			}
-		}
-		catch(Exception e){
-			logger.warning("Unable to retrieve metadata from object");
-			return null;
-		}
-		
-		return attributes;
-	}
+	
 
 	
 	private float[] convertDoubleToFloat(double[] dataIn) {
@@ -1249,7 +1242,7 @@ public class HDF5Reader implements PlugIn {
 				for (int i = 0; i < tmp.length; i++)
 					if (tmp[i] < 0)
 						tmp[i] = 0;
-				dataOut = (Object) tmp;
+				dataOut = tmp;
 			}
 		} else if (unsignedConvSelec == 1) {
 			// convert to float
@@ -1259,7 +1252,7 @@ public class HDF5Reader implements PlugIn {
 				float[] tmp = new float[tmpIn.length];
 				for (int i = 0; i < tmp.length; i++)
 					tmp[i] = (float) tmpIn[i];
-				dataOut = (Object) tmp;
+				dataOut = tmp;
 			}
 		}
 		return dataOut;

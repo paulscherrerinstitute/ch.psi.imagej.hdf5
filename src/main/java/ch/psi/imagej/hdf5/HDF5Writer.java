@@ -26,9 +26,6 @@ import ij.plugin.filter.PlugInFilter;
 import ij.process.*;
 import ij.gui.*;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
 import java.util.logging.Logger;
 
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -40,15 +37,8 @@ import ncsa.hdf.hdf5lib.exceptions.HDF5Exception;
 public class HDF5Writer implements PlugInFilter {
 	
 	private static final Logger logger = Logger.getLogger(HDF5Writer.class.getName());
-	
-	private Boolean _batchMode = false;
-	private String _batchFileName = null;
 
 	public int setup(String arg, ImagePlus imp) {
-		if (arg.equals("about")) {
-			showAbout();
-			return DONE;
-		}
 		// FIXME: set DOES_xx for image type here:
 		// currently RGB-Types are still missing
 		// see
@@ -56,34 +46,24 @@ public class HDF5Writer implements PlugInFilter {
 		return DOES_8G + DOES_16 + DOES_32 + DOES_RGB + NO_CHANGES;
 	}
 
-	public void setToBatchMode(String filename, String[] varnames) {
-		_batchMode = true;
-		_batchFileName = filename;
-	}
-
 	public void run(ImageProcessor ip) {
-		int[] wList = WindowManager.getIDList();
 
-		if (wList == null) {
+		// Check whether windows are open
+		if (WindowManager.getIDList() == null) {
 			IJ.error("No windows are open.");
 			return;
 		}
 
-		String filename = null;
-		if (_batchMode) {
-			filename = _batchFileName;
-		} else {
-			SaveDialog sd = new SaveDialog("Save HDF5 ...", "", ".h5");
-			String directory = sd.getDirectory();
-			String name = sd.getFileName();
-			filename = directory + name;
-
-			if (name == null)
-				return;
-			if (name == "")
+		// Query for filename to save datat to
+		SaveDialog sd = new SaveDialog("Save HDF5 ...", "", ".h5");
+		String directory = sd.getDirectory();
+		String name = sd.getFileName();
+		if (name == null || name.equals("")){
 				return;
 		}
 
+		String filename = directory + name;
+		
 		// Retrieve an instance of the implementing class for the HDF5 format
 		FileFormat fileFormat = FileFormat.getFileFormat(FileFormat.FILE_TYPE_HDF5);
 
@@ -216,9 +196,7 @@ public class HDF5Writer implements PlugInFilter {
 							logger.info("selected.length: " + Integer.toString(selected.length));
 							logger.info("channelDims.length: " + Integer.toString(channelDims.length));
 							if (nLevs == 1) {
-								for (int d = 0; d < selected.length; d++) {
-									selected[d] = channelDims[d];
-								}
+                                System.arraycopy(channelDims, 0, selected, 0, selected.length);
 								int stackIndex = imp.getStackIndex(c + 1, 1, f + 1);
 								logger.info("Stackindex: " + Integer.toString(stackIndex));
 								// get raw data
@@ -232,9 +210,7 @@ public class HDF5Writer implements PlugInFilter {
 								}
 							} else {
 								selected[0] = 1;
-								for (int d = 1; d < selected.length; d++) {
-									selected[d] = channelDims[d];
-								}
+                                System.arraycopy(channelDims, 1, selected, 1, selected.length - 1);
 								long[] start = dataset.getStartDims(); // the
 																		// off
 																		// set
@@ -438,9 +414,7 @@ public class HDF5Writer implements PlugInFilter {
 				// dataet
 				ImageStack stack = imp.getStack();
 				if (nLevels == 1) {
-					for (int d = 0; d < selected.length; d++) {
-						selected[d] = dims[d];
-					}
+                    System.arraycopy(dims, 0, selected, 0, selected.length);
 					// get raw data
 					Object slice = stack.getPixels(nLevels);
 					if (imgColorType == ImagePlus.COLOR_RGB)
@@ -450,9 +424,7 @@ public class HDF5Writer implements PlugInFilter {
 
 				} else {
 					selected[0] = 1;
-					for (int d = 1; d < selected.length; d++) {
-						selected[d] = dims[d];
-					}
+                    System.arraycopy(dims, 1, selected, 1, selected.length - 1);
 					long[] start = dataset.getStartDims(); // the off set of
 					// the selection
 					for (int lvl = 0; lvl < nLevels; ++lvl) {
@@ -480,7 +452,7 @@ public class HDF5Writer implements PlugInFilter {
 				long[] attrDims = { 3 };
 				Attribute element_size_um = null;
 				try {
-					element_size_um = getAttribute(dataset, "element_size_um");
+					element_size_um = HDF5Utilities.getAttributes(dataset).get("element_size_um");
 				} catch (Exception e) {
 					element_size_um = null;
 				}
@@ -502,16 +474,6 @@ public class HDF5Writer implements PlugInFilter {
 			}
 		}
 
-	}
-
-	int byteToUnsignedByte(int n) {
-		if (n < 0)
-			return (256 + n);
-		return n;
-	}
-
-	void showAbout() {
-		IJ.showMessage("About HDF5 Writer:", "Written by Matthias Schlachter\n" + "University of Freiburg, 2010");
 	}
 
 	private static Group createGroupRecursive(String groupRelativName, Group group, FileFormat file) {
@@ -618,47 +580,10 @@ public class HDF5Writer implements PlugInFilter {
 		for (int d = 0; d < Rank; ++d)
 			data_volume *= dataDims[d];
 		if (data_volume < maxChunkVol) {
-			for (int d = 0; d < Rank; ++d)
-				best_chunksize[d] = dataDims[d];
+            System.arraycopy(dataDims, 0, best_chunksize, 0, Rank);
 			return best_chunksize;
 		} else
 			return null;
-	}
-
-	private static List<Attribute> getAttrList(Dataset ds) throws Exception {
-		if (ds == null)
-			return null;
-
-		List<Attribute> attributes = new ArrayList<Attribute>();
-		List<?> members = ds.getMetadata();
-		int n = members.size();
-		Metadata obj = null;
-		for (int i = 0; i < n; i++) {
-			obj = (Metadata) members.get(i);
-			if (obj instanceof Attribute) {
-				try {
-					logger.info(((Attribute) obj).getName());
-					attributes.add((Attribute) obj);
-				} catch (java.lang.UnsupportedOperationException e) {
-					logger.info("Caught UnsupportedOperationException datasets2.add((Dataset) obj)");
-					logger.info(e.getMessage());
-				}
-			}
-		}
-		return attributes;
-	}
-
-	private static Attribute getAttribute(Dataset ds, String attrName) throws Exception {
-		List<Attribute> attrList = getAttrList(ds);
-		Iterator<Attribute> attrIter = attrList.iterator();
-
-		while (attrIter.hasNext()) {
-			Attribute attr = attrIter.next();
-			if (attr.getName().equals(attrName)) {
-				return attr;
-			}
-		}
-		return null;
 	}
 
 	private Object computeRgbSlice(Object pixels) {

@@ -19,7 +19,7 @@ public class TimeFrame implements Comparable<TimeFrame> {
 
 	public void addChannel(Integer index) {
 		if (!channels.contains(index)){
-			channels.add(new Integer(index));
+			channels.add(index);
 		}
 	}
 
