@@ -28,8 +28,6 @@ import ij.gui.*;
 
 import java.util.logging.Logger;
 
-import javax.swing.tree.DefaultMutableTreeNode;
-
 import ncsa.hdf.object.*; // the common object package
 import ncsa.hdf.object.h5.*; // the HDF5 implementation
 import ncsa.hdf.hdf5lib.exceptions.HDF5Exception;
@@ -144,12 +142,14 @@ public class HDF5Writer implements PlugInFilter {
 						IJ.showProgress(f, nFrames);
 						for (int c = 0; c < nChannels; c++) {
 							String fullName = makeDataSetName(formatTokens, f, c);
-							String dataSetName = getDataSetDescriptor(fullName);
-							logger.info("dataset name: " + dataSetName);
-							String groupName = getGroupDescriptor(fullName);
-							logger.info("group name: " + groupName);
+
+							String dataSetName = HDF5Utilities.getDataSetDescriptor(fullName);
+							String groupName = HDF5Utilities.getGroupDescriptor(fullName);
+							logger.info("group name: " + groupName + " dataset name: " + dataSetName);
+							
 							// ensure group exists
-							Group group = createGroupRecursive(groupName, null, outFile);
+							Group group = HDF5Utilities.createGroup(groupName, null, outFile);
+							
 							// create data set
 							Dataset dataset = null;
 							// select hyperslabs
@@ -258,13 +258,12 @@ public class HDF5Writer implements PlugInFilter {
 
 				logger.info("writing data to variable: " + varName);
 
-				String dataSetName = getDataSetDescriptor(varName);
-				logger.info("dataset name: " + dataSetName);
-				String groupName = getGroupDescriptor(varName);
-				logger.info("group name: " + groupName);
+				String dataSetName = HDF5Utilities.getDataSetDescriptor(varName);
+				String groupName = HDF5Utilities.getGroupDescriptor(varName);
+				logger.info("group name: " + groupName + " dataset name: " + dataSetName);
 
 				// ensure group exists
-				Group group = createGroupRecursive(groupName, null, outFile);
+				Group group = HDF5Utilities.createGroup(groupName, null, outFile);
 
 				
 
@@ -388,102 +387,6 @@ public class HDF5Writer implements PlugInFilter {
 			}
 		}
 
-	}
-
-	private static Group createGroupRecursive(String groupRelativName, Group group, FileFormat file) {
-		if (groupRelativName == null || file == null)
-			return null;
-
-		if (group == null)
-			group = (Group) ((DefaultMutableTreeNode) file.getRootNode()).getUserObject();
-
-		while (groupRelativName.charAt(0) == '/') {
-			// trim leading slash
-			groupRelativName = groupRelativName.substring(1);
-		}
-		while (groupRelativName.charAt(groupRelativName.length() - 1) == '/') {
-			// trim last slash
-			groupRelativName = groupRelativName.substring(0, groupRelativName.length() - 2);
-		}
-
-		int posOfSlash = groupRelativName.indexOf('/');
-
-		if (posOfSlash == -1) {
-			try {
-				Group newGroup;
-				String newGroupName;
-				if (group.isRoot())
-					newGroupName = "/" + groupRelativName;
-				else
-					newGroupName = group.getFullName() + "/" + groupRelativName;
-				newGroup = (Group) file.get(newGroupName);
-				if (newGroup == null)
-					newGroup = file.createGroup(newGroupName, group);
-				return newGroup;
-			} catch (Exception e) {
-				return null;
-			}
-		} else {
-			String subgroupRelativName = groupRelativName.substring(posOfSlash);
-			String currentGroup = groupRelativName.substring(0, posOfSlash);
-			logger.info("Create: " + currentGroup);
-			logger.info("Call back for: " + subgroupRelativName);
-			try {
-				Group newGroup;
-				String newGroupName;
-				if (group.isRoot())
-					newGroupName = "/" + currentGroup;
-				else
-					newGroupName = group.getFullName() + "/" + currentGroup;
-
-				logger.info("try opening: " + newGroupName);
-				newGroup = (Group) file.get(newGroupName);
-
-				if (newGroup == null)
-					newGroup = file.createGroup(newGroupName, group);
-
-				return createGroupRecursive(subgroupRelativName, newGroup, file);
-			} catch (Exception e) {
-				return null;
-			}
-
-		}
-		// never come here
-	}
-
-	private static String getGroupDescriptor(String absName) {
-		String groupName = absName;
-
-		while (groupName.charAt(0) == '/') {
-			// trim leading slash
-			groupName = groupName.substring(1);
-		}
-		while (groupName.charAt(groupName.length() - 1) == '/') {
-			// trim last slash
-			groupName = groupName.substring(0, groupName.length() - 2);
-		}
-		int posOfLastSlash = groupName.lastIndexOf('/');
-		if (posOfLastSlash == -1)
-			return null;
-		else
-			return groupName.substring(0, posOfLastSlash);
-	}
-
-	private static String getDataSetDescriptor(String absName) {
-		String dataSetName = absName;
-		while (dataSetName.charAt(0) == '/') {
-			// trim leading slash
-			dataSetName = dataSetName.substring(1);
-		}
-		while (dataSetName.charAt(dataSetName.length() - 1) == '/') {
-			// trim last slash
-			dataSetName = dataSetName.substring(0, dataSetName.length() - 2);
-		}
-		int posOfLastSlash = dataSetName.lastIndexOf('/');
-		if (posOfLastSlash == -1)
-			return dataSetName;
-		else
-			return dataSetName.substring(posOfLastSlash + 1);
 	}
 
 	long[] findOptimalChunksize(int Rank, long[] dataDims) {

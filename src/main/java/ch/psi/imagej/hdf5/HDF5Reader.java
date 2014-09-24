@@ -93,134 +93,408 @@ public class HDF5Reader implements PlugIn {
 		try {
 			inFile = new H5File(directory + name, H5File.READ);
 			inFile.open();
+			
+			List<Dataset> datasets = HDF5Utilities.getDatasets(inFile);
+			List<Dataset> selectedDatasets = selectDatasets(datasets);
+			
+			for (Dataset var : selectedDatasets) {
+				// Read dataset attributes and properties
+				String datasetName = var.getName();
+				int rank = var.getRank();
+				Datatype datatype = var.getDatatype();
+				Datatype datatypeIfUnsupported = null;
+				long[] extent = var.getDims(); // Extent in px (level,row,col)
 
-			// Parse the file
-			Group rootNode = (Group) ((javax.swing.tree.DefaultMutableTreeNode) inFile.getRootNode()).getUserObject();
-			List<Dataset> varList = getDatasets(rootNode, new ArrayList<Dataset>());
-
-			GenericDialog gd = new GenericDialog("Variable Name Selection");
-			gd.addMessage("Please select variables to be loaded.\n");
-
-			if (varList.size() < 1) {
-				IJ.error("The file did not contain variables. (broken?)");
-				inFile.close();
-				return;
-			} else if (varList.size() > 1000) {
+				logger.info("Reading dataset: " + datasetName + " Rank: " + rank + " Type: " + datatype.getDatatypeDescription());
 				
-				logger.info("#######");
-				for(Dataset d: varList){
-					logger.info(d.getFullName());
-				}
-				logger.info("#######");
+				double pixelWith = 1.0;
+				double pixelHeight = 1.0;
+				double pixelDepth = 1.0;
 				
-				/*-----------------------------------------------------------------
-				 *  FIXME: quick an dirty hack for files with more than 1000
-				 *  datasets
-				 *-----------------------------------------------------------------*/
-				gd = new GenericDialog("Variable Name Selection");
-				gd.addMessage("Too many variables in your file! " + "(More than 1000)\n\n" + "Please enter the full name of your desired dataset.");
-				gd.addStringField("dataset name", "");
-				gd.showDialog();
+				IJ.showStatus("Reading Variable: " + datasetName + " (" + extent[0] + " slices)");
+				
+				// nice gadget to update the progress bar
+				long progressDivisor = extent[0] / 50; // we assume 50 process
+														// steps
+				if (progressDivisor < 1)
+					progressDivisor = 1;
 
-				if (gd.wasCanceled()) {
-					return;
-				}
+				// check if we have an unsupported datatype
+				if (datatype.getDatatypeClass() == Datatype.CLASS_INTEGER && (datatype.getDatatypeSize() == 4 || datatype.getDatatypeSize() == 8)) {
+					logger.info("Datatype not supported by ImageJ");
+					GenericDialog typeSelDiag = new GenericDialog("Datatype Selection");
+					typeSelDiag.addMessage("The datatype `" + datatype.getDatatypeDescription() + "` is not supported by ImageJ.\n\n");
+					typeSelDiag.addMessage("Please select your wanted datatype.\n");
+					String[] choices = new String[2];
+					choices[0] = "float";
+					choices[1] = "short";
+					typeSelDiag.addChoice("      Possible types are", choices, "float");
+					typeSelDiag.showDialog();
 
-				String dsName = gd.getNextString();
-				varList = new ArrayList<Dataset>();
-				try {
-					HObject ds = inFile.get(dsName);
-					if (ds != null && ds instanceof Dataset) {
-						varList.add((Dataset) ds);
-						gd.addCheckbox("single variable", true);
-					} else {
-						IJ.error("The file does not contain a variable with name " + "`" + dsName + "`!");
-						inFile.close();
+					if (typeSelDiag.wasCanceled()) {
 						return;
 					}
-				} catch (Exception e) {
-					IJ.error("The file does not contain a variable with name " + "`" + dsName + "`!");
-					inFile.close();
-					return;
-				}
-			} else {
-				String[] varSelections = new String[varList.size()];
-				boolean[] defaultValues = new boolean[varList.size()];
-				for (int i = 0; i < varList.size(); i++) {
-					Dataset var = varList.get(i);
-					int rank = var.getRank();
-					String title = rank + "D: " + var.getFullName() + "              " + var.getDatatype().getDatatypeDescription() + "( ";
-					long[] extent = var.getDims();
-					for (int d = 0; d < rank; ++d) {
-						if (d != 0)
-							title += "x";
-						title += extent[d];
+					int selection = typeSelDiag.getNextChoiceIndex();
+					if (selection == 0) {
+						logger.info("float selected");
+						datatypeIfUnsupported = new H5Datatype(Datatype.CLASS_FLOAT, Datatype.NATIVE, Datatype.NATIVE, -1);
 					}
-					title += ")";
-					varSelections[i] = title;
-					defaultValues[i] = false;
+					if (selection == 1) {
+						logger.info("short selected");
+						int typeSizeInByte = 2;
+						datatypeIfUnsupported = new H5Datatype(Datatype.CLASS_INTEGER, typeSizeInByte, Datatype.NATIVE, -1);
+					}
 				}
-				logger.info("addcheckboxgroup with " + varList.size() + " rows");
-				gd.addCheckboxGroup(varList.size(), 1, varSelections, defaultValues);
-				addScrollBars(gd);
-				gd.showDialog();
 
-				if (gd.wasCanceled()) {
-					return;
-				}
-			}
-			
-			// varList should have size=0 if only grouping is wanted
-			// use old style
-			for (int i = 0; i < varList.size(); ++i) {
-				if (gd.getNextBoolean()) {
-					Dataset var = varList.get(i);
-					int rank = var.getRank();
-					Datatype datatype = var.getDatatype();
-					Datatype datatypeIfUnsupported = null;
-					long[] extent = var.getDims();
+				// read dataset
+				if (rank == 5 && extent[4] == 3) {
+					logger.info("   Detected HyperVolume (type RGB).");
 
-					logger.info("Reading Variable: " + var.getName());
-					logger.info("   Rank = " + rank + ", Data-type = " + datatype.getDatatypeDescription());
-					System.out.print("   Extent in px (level,row,col):");
-					for (int d = 0; d < rank; ++d)
-						System.out.print(" " + extent[d]);
-					logger.info("");
-					IJ.showStatus("Reading Variable: " + var.getName() + " (" + extent[0] + " slices)");
+					// create a new image stack and fill in the data
+					ImageStack stack = new ImageStack((int) extent[3], (int) extent[2]);
+					// read the whole dataset, since reading chunked
+					// datasets
+					// slice-wise is too slow
 
-					Attribute elemsize_att = HDF5Utilities.getAttributes(var).get("element_size_um");
-					double[] elem_sizes = new double[3];
-					if (elemsize_att == null) {
-						elem_sizes[0] = 1.0;
-						elem_sizes[1] = 1.0;
-						elem_sizes[2] = 1.0;
-					} else {
-						logger.info("Reading element_size_um");
-						Object tmp = elemsize_att.getValue();
-						if (tmp instanceof float[]) {
-							elem_sizes[0] = ((float[]) tmp)[0];
-							elem_sizes[1] = ((float[]) tmp)[1];
-							elem_sizes[2] = ((float[]) tmp)[2];
-						} else if (tmp instanceof double[]) {
-							elem_sizes[0] = ((double[]) tmp)[0];
-							elem_sizes[1] = ((double[]) tmp)[1];
-							elem_sizes[2] = ((double[]) tmp)[2];
-						} else {
-							String title = "Error Reading Element Size";
-							String msg = "The element_size_um attribute has " + "wrong format!\n" + "Setting to default size of (1,1,1)...";
-							new ij.gui.MessageDialog(null, title, msg);
-							elem_sizes[0] = 1.0;
-							elem_sizes[1] = 1.0;
-							elem_sizes[2] = 1.0;
+					long[] dims = var.getDims(); // the dimension sizes
+					// of the dataset
+					long[] selected = var.getSelectedDims(); // the
+					// selected
+					// size of
+					// the
+					// dataet
+					selected[0] = dims[0];
+					selected[1] = dims[1];
+					selected[2] = dims[2];
+					selected[3] = dims[3];
+					selected[4] = dims[4];// 3
+					// the selection
+					Object wholeDataset = var.read();
+					// check for unsigned datatype
+					int unsignedConvSelec = 0;
+					Datatype dType = var.getDatatype();
+					boolean isSigned16Bit = !dType.isUnsigned() && (dType.getDatatypeClass() == Datatype.CLASS_INTEGER) && (dType.getDatatypeSize() == 2);
+
+					if (isSigned16Bit) {
+						GenericDialog convDiag = new GenericDialog("Unsigend to signed conversion");
+						convDiag.addMessage("Detected unsigned datatype, which " + "is not supported.");
+						String[] convOptions = new String[2];
+						convOptions[0] = "cut off values";
+						convOptions[1] = "convert to float";
+						convDiag.addChoice("Please select an conversion option:", convOptions, convOptions[0]);
+						convDiag.showDialog();
+						if (convDiag.wasCanceled())
+							return;
+						unsignedConvSelec = convDiag.getNextChoiceIndex();
+						wholeDataset = convertToUnsigned(wholeDataset, unsignedConvSelec);
+					}
+
+					long stackSize = extent[2] * extent[3];
+					long singleVolumeSize = extent[1] * stackSize;
+					int size = (int) stackSize;
+
+					for (int volIDX = 0; volIDX < extent[0]; ++volIDX) {
+						if ((volIDX % progressDivisor) == 0)
+							IJ.showProgress((float) volIDX / (float) extent[0]);
+						// start[0] = volIDX;
+
+						for (int lev = 0; lev < extent[1]; ++lev) {
+							// select hyperslab for lev
+							// start[1] = lev;
+							// Object slice = var.read();
+							int startIdx = (int) ((volIDX * singleVolumeSize * 3) + (lev * stackSize * 3));
+							// long numElements = stackSize * 3;
+							int endIdx = (int) (startIdx + stackSize * 3 - 1);
+
+							copyPixels3(datatypeIfUnsupported, extent, stack, wholeDataset, size, startIdx, endIdx);
 						}
 					}
-					logger.info("   Element-Size in um (level,row,col): " + elem_sizes[0] + ", " + elem_sizes[1] + ", " + elem_sizes[2]);
 
-					
-					// nice gadget to update the progress bar
-					long progressDivisor = extent[0] / 50; // we assume 50 process steps
-					if (progressDivisor < 1)
-						progressDivisor = 1;
+					IJ.showProgress(1.f);
+					ImagePlus imp = new ImagePlus(directory + name + " " + datasetName, stack);
+					// new for hyperstack
+					int nChannels = 3;
+					int nSlices = (int) extent[1];
+					int nFrames = (int) extent[0];
+					logger.info("nFrames: " + Integer.toString(nFrames));
+					logger.info("nSlices: " + Integer.toString(nSlices));
+
+					logger.info("stackSize: " + Integer.toString(stack.getSize()));
+
+					imp.setDimensions(nChannels, nSlices, nFrames);
+					imp = new CompositeImage(imp, CompositeImage.COMPOSITE);
+					imp.setOpenAsHyperStack(true);
+					imp.getCalibration().pixelDepth = pixelDepth;
+					imp.getCalibration().pixelHeight = pixelHeight;
+					imp.getCalibration().pixelWidth = pixelWith;
+					imp.resetDisplayRange();
+					imp.show();
+				} else if (rank == 4) {
+					if (extent[3] == 3) {
+						logger.info("   Detected color Image (type RGB).");
+
+						// create a new image stack and fill in the data
+						ImageStack stack = new ImageStack((int) extent[2], (int) extent[1]);
+
+						long[] dims = var.getDims(); // the dimension sizes
+						// of the dataset
+						long[] selected = var.getSelectedDims(); // the
+						// selected
+						// size of
+						// the
+						// dataet
+						selected[0] = dims[0];
+						selected[1] = dims[1];
+						selected[2] = dims[2];
+						selected[3] = dims[3];
+						// long[] start = var.getStartDims(); // the off set
+						// of
+						// // the selection
+
+						Object wholeDataset = var.read();
+						// check for unsigned datatype
+						int unsignedConvSelec = 0;
+						Datatype dType = var.getDatatype();
+						boolean isSigned16Bit = !dType.isUnsigned() && (dType.getDatatypeClass() == Datatype.CLASS_INTEGER) && (dType.getDatatypeSize() == 2);
+						if (isSigned16Bit) {
+							GenericDialog convDiag = new GenericDialog("Unsigend to signed conversion");
+							convDiag.addMessage("Detected unsigned datatype, which " + "is not supported.");
+							String[] convOptions = new String[2];
+							convOptions[0] = "cut off values";
+							convOptions[1] = "convert to float";
+							convDiag.addChoice("Please select an conversion option:", convOptions, convOptions[0]);
+							convDiag.showDialog();
+							if (convDiag.wasCanceled())
+								return;
+							unsignedConvSelec = convDiag.getNextChoiceIndex();
+							wholeDataset = convertToUnsigned(wholeDataset, unsignedConvSelec);
+						}
+
+						long stackSize = extent[1] * extent[2] * 3;
+
+						for (int lev = 0; lev < extent[0]; ++lev) {
+							if ((lev % progressDivisor) == 0)
+								IJ.showProgress((float) lev / (float) extent[0]);
+
+							// // select hyperslab for lev
+							// start[0] = lev;
+							// Object slice = var.read();
+
+							int startIdx = (int) (lev * stackSize);
+							// long numElements = stackSize;
+							int endIdx = (int) (startIdx + stackSize - 1);
+							// Object slice = extractSubarray(wholeDataset,
+							// startIdx, numElements);
+
+							int size = (int) (extent[2] * extent[1]);
+							copyPixels1(extent, stack, wholeDataset, startIdx, endIdx, size);
+						}
+						ImagePlus imp = new ImagePlus(directory + name + " " + datasetName, stack);
+						// new for hyperstack
+						int nChannels = 3;
+						int nSlices = (int) extent[0];
+						int nFrames = 1;
+						imp.setDimensions(nChannels, nSlices, nFrames);
+						imp = new CompositeImage(imp, CompositeImage.COMPOSITE);
+						imp.setOpenAsHyperStack(true);
+						imp.getCalibration().pixelDepth = pixelDepth;
+						imp.getCalibration().pixelHeight = pixelHeight;
+						imp.getCalibration().pixelWidth = pixelWith;
+						imp.resetDisplayRange();
+						imp.show();
+						imp.updateStatusbarValue();
+					} else // we have a HyperVolume
+					{
+						logger.info("   Detected HyperVolume (type GREYSCALE).");
+
+						// create a new image stack and fill in the data
+						ImageStack stack = new ImageStack((int) extent[3], (int) extent[2]);
+						// read the whole dataset, since reading chunked
+						// datasets
+						// slice-wise is too slow
+
+						long[] dims = var.getDims(); // the dimension sizes
+						// of the dataset
+						long[] selected = var.getSelectedDims(); // the
+						// selected
+						// size of
+						// the
+						// dataet
+						selected[0] = dims[0];
+						selected[1] = dims[1];
+						selected[2] = dims[2];
+						selected[3] = dims[3];
+						// the selection
+						Object wholeDataset = var.read();
+						// check for unsigned datatype
+						int unsignedConvSelec = 0;
+						Datatype dType = var.getDatatype();
+						boolean isSigned16Bit = !dType.isUnsigned() && (dType.getDatatypeClass() == Datatype.CLASS_INTEGER) && (dType.getDatatypeSize() == 2);
+						if (isSigned16Bit) {
+							GenericDialog convDiag = new GenericDialog("Unsigend to signed conversion");
+							convDiag.addMessage("Detected unsigned datatype, which " + "is not supported.");
+							String[] convOptions = new String[2];
+							convOptions[0] = "cut off values";
+							convOptions[1] = "convert to float";
+							convDiag.addChoice("Please select an conversion option:", convOptions, convOptions[0]);
+							convDiag.showDialog();
+							if (convDiag.wasCanceled())
+								return;
+							unsignedConvSelec = convDiag.getNextChoiceIndex();
+							wholeDataset = convertToUnsigned(wholeDataset, unsignedConvSelec);
+						}
+
+						long stackSize = extent[2] * extent[3];
+						long singleVolumeSize = extent[1] * stackSize;
+
+						for (int volIDX = 0; volIDX < extent[0]; ++volIDX) {
+							if ((volIDX % progressDivisor) == 0)
+								IJ.showProgress((float) volIDX / (float) extent[0]);
+							// start[0] = volIDX;
+
+							for (int lev = 0; lev < extent[1]; ++lev) {
+								// select hyperslab for lev
+								// start[1] = lev;
+								// Object slice = var.read();
+								int startIdx = (int) ((volIDX * singleVolumeSize) + (lev * stackSize));
+								int endIdx = (int) (startIdx + stackSize - 1);
+								// long numElements = stackSize;
+
+								convertDatatypesAndSlice(datatypeIfUnsupported, stack, wholeDataset, startIdx, endIdx);
+							}
+						}
+
+						IJ.showProgress(1.f);
+						ImagePlus imp = new ImagePlus(directory + name + " " + datasetName, stack);
+						// new for hyperstack
+						int nChannels = 1;
+						int nSlices = (int) extent[1];
+						int nFrames = (int) extent[0];
+						Integer nFramesI = nFrames;
+						Integer nSlicesI = nSlices;
+						logger.info("nFrames: " + nFramesI.toString());
+						logger.info("nSlices: " + nSlicesI.toString());
+
+						Integer myStackSize = stack.getSize();
+						logger.info("stackSize: " + myStackSize.toString());
+
+						imp.setDimensions(nChannels, nSlices, nFrames);
+						imp.setOpenAsHyperStack(true);
+						imp.getCalibration().pixelDepth = pixelDepth;
+						imp.getCalibration().pixelHeight = pixelHeight;
+						imp.getCalibration().pixelWidth = pixelWith;
+						imp.resetDisplayRange();
+						imp.show();
+					}
+				} else if (rank == 3 && extent[2] == 3) {
+					logger.info("This is an rgb image");
+					// create a new image stack and fill in the data
+					ImageStack stack = new ImageStack((int) extent[1], (int) extent[0]);
+
+					long[] selected = var.getSelectedDims(); // the
+					// selected
+					// size of
+					// the
+					// dataet
+					selected[0] = extent[0];
+					selected[1] = extent[1];
+					selected[2] = extent[2];
+					Object slice = var.read();
+					// check for unsigned datatype
+					int unsignedConvSelec = 0;
+					Datatype dType = var.getDatatype();
+					boolean isSigned16Bit = !dType.isUnsigned() && (dType.getDatatypeClass() == Datatype.CLASS_INTEGER) && (dType.getDatatypeSize() == 2);
+					if (isSigned16Bit) {
+						GenericDialog convDiag = new GenericDialog("Unsigend to signed conversion");
+						convDiag.addMessage("Detected unsigned datatype, which " + "is not supported.");
+						String[] convOptions = new String[2];
+						convOptions[0] = "cut off values";
+						convOptions[1] = "convert to float";
+						convDiag.addChoice("Please select an conversion option:", convOptions, convOptions[0]);
+						convDiag.showDialog();
+						if (convDiag.wasCanceled())
+							return;
+						unsignedConvSelec = convDiag.getNextChoiceIndex();
+						slice = convertToUnsigned(slice, unsignedConvSelec);
+					}
+
+					int size = (int) (extent[1] * extent[0]);
+
+					// ugly but working: copy pixel by pixel
+					copyPixels2(extent, stack, slice, size);
+
+					IJ.showProgress(1.f);
+					ImagePlus imp = new ImagePlus(directory + name + " " + datasetName, stack);
+					// new for hyperstack
+					int nChannels = 3;
+					int nSlices = 1;
+					int nFrames = 1;
+					imp.setDimensions(nChannels, nSlices, nFrames);
+					imp = new CompositeImage(imp, CompositeImage.COMPOSITE);
+					imp.setOpenAsHyperStack(true);
+					imp.getCalibration().pixelDepth = pixelDepth;
+					imp.getCalibration().pixelHeight = pixelHeight;
+					imp.getCalibration().pixelWidth = pixelWith;
+					imp.resetDisplayRange();
+					imp.show();
+					imp.updateStatusbarValue();
+				} else if (rank == 3) {
+					logger.info("Rank is 3");
+
+					// create a new image stack and fill in the data
+					ImageStack stack = new ImageStack((int) extent[2], (int) extent[1]);
+
+					long[] selected = var.getSelectedDims(); // the
+					// selected
+					// size of
+					// the
+					// dataet
+					selected[0] = extent[0];
+					selected[1] = extent[1];
+					selected[2] = extent[2];
+					Object wholeDataset = var.read();
+					// check for unsigned datatype
+					int unsignedConvSelec = 0;
+					Datatype dType = var.getDatatype();
+					boolean isSigned16Bit = !dType.isUnsigned() && (dType.getDatatypeClass() == Datatype.CLASS_INTEGER) && (dType.getDatatypeSize() == 2);
+
+					if (isSigned16Bit) {
+						GenericDialog convDiag = new GenericDialog("Unsigend to signed conversion");
+						convDiag.addMessage("Detected unsigned datatype, which " + "is not supported.");
+						String[] convOptions = new String[2];
+						convOptions[0] = "cut off values";
+						convOptions[1] = "convert to float";
+						convDiag.addChoice("Please select an conversion option:", convOptions, convOptions[0]);
+						convDiag.showDialog();
+						if (convDiag.wasCanceled())
+							return;
+						unsignedConvSelec = convDiag.getNextChoiceIndex();
+						wholeDataset = convertToUnsigned(wholeDataset, unsignedConvSelec);
+					}
+
+					long stackSize = extent[1] * extent[2];
+
+					for (int lev = 0; lev < extent[0]; ++lev) {
+						if ((lev % progressDivisor) == 0)
+							IJ.showProgress((float) lev / (float) extent[0]);
+						// select hyperslab for lev
+						// start[0] = lev;
+						// Object slice = var.read();
+
+						int startIdx = (int) (lev * stackSize);
+						int endIdx = (int) (startIdx + stackSize - 1);
+						// long numElements = stackSize;
+						convertDatatypesAndSlice(datatypeIfUnsupported, stack, wholeDataset, startIdx, endIdx);
+					}
+					IJ.showProgress(1.f);
+					ImagePlus imp = new ImagePlus(directory + name + " " + datasetName, stack);
+					imp.getCalibration().pixelDepth = pixelDepth;
+					imp.getCalibration().pixelHeight = pixelHeight;
+					imp.getCalibration().pixelWidth = pixelWith;
+					imp.resetDisplayRange();
+					imp.show();
+					imp.updateStatusbarValue();
+				} else if (rank == 2) {
 
 					// check if we have an unsupported datatype
 					if (datatype.getDatatypeClass() == Datatype.CLASS_INTEGER && (datatype.getDatatypeSize() == 4 || datatype.getDatatypeSize() == 8)) {
@@ -248,473 +522,78 @@ public class HDF5Reader implements PlugIn {
 							datatypeIfUnsupported = new H5Datatype(Datatype.CLASS_INTEGER, typeSizeInByte, Datatype.NATIVE, -1);
 						}
 					}
-
-					// read dataset
-					if (rank == 5 && extent[4] == 3) {
-						logger.info("   Detected HyperVolume (type RGB).");
-
-						// create a new image stack and fill in the data
-						ImageStack stack = new ImageStack((int) extent[3], (int) extent[2]);
-						// read the whole dataset, since reading chunked
-						// datasets
-						// slice-wise is too slow
-
-						long[] dims = var.getDims(); // the dimension sizes
-						// of the dataset
-						long[] selected = var.getSelectedDims(); // the
-						// selected
-						// size of
-						// the
-						// dataet
-						selected[0] = dims[0];
-						selected[1] = dims[1];
-						selected[2] = dims[2];
-						selected[3] = dims[3];
-						selected[4] = dims[4];// 3
-						// the selection
-						Object wholeDataset = var.read();
-						// check for unsigned datatype
-						int unsignedConvSelec = 0;
-						Datatype dType = var.getDatatype();
-						boolean isSigned16Bit = !dType.isUnsigned() && (dType.getDatatypeClass() == Datatype.CLASS_INTEGER) && (dType.getDatatypeSize() == 2);
-
-						if (isSigned16Bit) {
-							GenericDialog convDiag = new GenericDialog("Unsigend to signed conversion");
-							convDiag.addMessage("Detected unsigned datatype, which " + "is not supported.");
-							String[] convOptions = new String[2];
-							convOptions[0] = "cut off values";
-							convOptions[1] = "convert to float";
-							convDiag.addChoice("Please select an conversion option:", convOptions, convOptions[0]);
-							convDiag.showDialog();
-							if (convDiag.wasCanceled())
-								return;
-							unsignedConvSelec = convDiag.getNextChoiceIndex();
-							wholeDataset = convertToUnsigned(wholeDataset, unsignedConvSelec);
-						}
-
-						long stackSize = extent[2] * extent[3];
-						long singleVolumeSize = extent[1] * stackSize;
-						int size = (int) stackSize;
-
-						for (int volIDX = 0; volIDX < extent[0]; ++volIDX) {
-							if ((volIDX % progressDivisor) == 0)
-								IJ.showProgress((float) volIDX / (float) extent[0]);
-							// start[0] = volIDX;
-
-							for (int lev = 0; lev < extent[1]; ++lev) {
-								// select hyperslab for lev
-								// start[1] = lev;
-								// Object slice = var.read();
-								int startIdx = (int)((volIDX * singleVolumeSize * 3) + (lev * stackSize * 3));
-//								long numElements = stackSize * 3;
-								int endIdx = (int)(startIdx+stackSize*3-1);
-
-								copyPixels3(datatypeIfUnsupported, extent, stack, wholeDataset, size, startIdx, endIdx);
-							}
-						}
-
-						IJ.showProgress(1.f);
-						ImagePlus imp = new ImagePlus(directory + name + " " + var.getName(), stack);
-						// new for hyperstack
-						int nChannels = 3;
-						int nSlices = (int) extent[1];
-						int nFrames = (int) extent[0];
-						logger.info("nFrames: " + Integer.toString(nFrames));
-						logger.info("nSlices: " + Integer.toString(nSlices));
-
-						logger.info("stackSize: " + Integer.toString(stack.getSize()));
-
-						imp.setDimensions(nChannels, nSlices, nFrames);
-						imp = new CompositeImage(imp, CompositeImage.COMPOSITE);
-						imp.setOpenAsHyperStack(true);
-						// imp = imp.createHyperStack(directory + name + " "
-						// + var.getName(),
-						// nChannels,
-						// nSlices,
-						// nFrames,32);
-						// imp.setStack(stack,nChannels,nSlices,nFrames);
-
-						imp.getCalibration().pixelDepth = elem_sizes[0];
-						imp.getCalibration().pixelHeight = elem_sizes[1];
-						imp.getCalibration().pixelWidth = elem_sizes[2];
-						// getMinMax();
-						// imp.setDisplayRange(0,229);
-						imp.resetDisplayRange();
-						imp.show();
-					} else if (rank == 4) {
-						if (extent[3] == 3) {
-							logger.info("   Detected color Image (type RGB).");
-
-							// create a new image stack and fill in the data
-							ImageStack stack = new ImageStack((int) extent[2], (int) extent[1]);
-
-							long[] dims = var.getDims(); // the dimension sizes
-							// of the dataset
-							long[] selected = var.getSelectedDims(); // the
-							// selected
-							// size of
-							// the
-							// dataet
-							selected[0] = dims[0];
-							selected[1] = dims[1];
-							selected[2] = dims[2];
-							selected[3] = dims[3];
-							// long[] start = var.getStartDims(); // the off set
-							// of
-							// // the selection
-
-							Object wholeDataset = var.read();
-							// check for unsigned datatype
-							int unsignedConvSelec = 0;
-							Datatype dType = var.getDatatype();
-							boolean isSigned16Bit = !dType.isUnsigned() && (dType.getDatatypeClass() == Datatype.CLASS_INTEGER) && (dType.getDatatypeSize() == 2);
-							if (isSigned16Bit) {
-								GenericDialog convDiag = new GenericDialog("Unsigend to signed conversion");
-								convDiag.addMessage("Detected unsigned datatype, which " + "is not supported.");
-								String[] convOptions = new String[2];
-								convOptions[0] = "cut off values";
-								convOptions[1] = "convert to float";
-								convDiag.addChoice("Please select an conversion option:", convOptions, convOptions[0]);
-								convDiag.showDialog();
-								if (convDiag.wasCanceled())
-									return;
-								unsignedConvSelec = convDiag.getNextChoiceIndex();
-								wholeDataset = convertToUnsigned(wholeDataset, unsignedConvSelec);
-							}
-
-							long stackSize = extent[1] * extent[2] * 3;
-
-							for (int lev = 0; lev < extent[0]; ++lev) {
-								if ((lev % progressDivisor) == 0)
-									IJ.showProgress((float) lev / (float) extent[0]);
-
-								// // select hyperslab for lev
-								// start[0] = lev;
-								// Object slice = var.read();
-
-								int startIdx = (int)(lev * stackSize);
-//								long numElements = stackSize;
-								int endIdx = (int)(startIdx+stackSize-1);
-//								Object slice = extractSubarray(wholeDataset, startIdx, numElements);
-
-								int size = (int) (extent[2] * extent[1]);
-								copyPixel1(extent, stack, wholeDataset, startIdx, endIdx, size);
-							}
-							ImagePlus imp = new ImagePlus(directory + name + " " + var.getName(), stack);
-							// new for hyperstack
-							int nChannels = 3;
-							int nSlices = (int) extent[0];
-							int nFrames = 1;
-							imp.setDimensions(nChannels, nSlices, nFrames);
-							imp = new CompositeImage(imp, CompositeImage.COMPOSITE);
-							imp.setOpenAsHyperStack(true);
-
-							imp.getCalibration().pixelDepth = elem_sizes[0];
-							imp.getCalibration().pixelHeight = elem_sizes[1];
-							imp.getCalibration().pixelWidth = elem_sizes[2];
-
-							// getMinMax();
-							imp.resetDisplayRange();
-							imp.show();
-							imp.updateStatusbarValue();
-						} else // we have a HyperVolume
-						{
-							logger.info("   Detected HyperVolume (type GREYSCALE).");
-
-							// create a new image stack and fill in the data
-							ImageStack stack = new ImageStack((int) extent[3], (int) extent[2]);
-							// read the whole dataset, since reading chunked
-							// datasets
-							// slice-wise is too slow
-
-							long[] dims = var.getDims(); // the dimension sizes
-							// of the dataset
-							long[] selected = var.getSelectedDims(); // the
-							// selected
-							// size of
-							// the
-							// dataet
-							selected[0] = dims[0];
-							selected[1] = dims[1];
-							selected[2] = dims[2];
-							selected[3] = dims[3];
-							// the selection
-							Object wholeDataset = var.read();
-							// check for unsigned datatype
-							int unsignedConvSelec = 0;
-							Datatype dType = var.getDatatype();
-							boolean isSigned16Bit = !dType.isUnsigned() && (dType.getDatatypeClass() == Datatype.CLASS_INTEGER) && (dType.getDatatypeSize() == 2);
-							if (isSigned16Bit) {
-								GenericDialog convDiag = new GenericDialog("Unsigend to signed conversion");
-								convDiag.addMessage("Detected unsigned datatype, which " + "is not supported.");
-								String[] convOptions = new String[2];
-								convOptions[0] = "cut off values";
-								convOptions[1] = "convert to float";
-								convDiag.addChoice("Please select an conversion option:", convOptions, convOptions[0]);
-								convDiag.showDialog();
-								if (convDiag.wasCanceled())
-									return;
-								unsignedConvSelec = convDiag.getNextChoiceIndex();
-								wholeDataset = convertToUnsigned(wholeDataset, unsignedConvSelec);
-							}
-
-							long stackSize = extent[2] * extent[3];
-							long singleVolumeSize = extent[1] * stackSize;
-
-							for (int volIDX = 0; volIDX < extent[0]; ++volIDX) {
-								if ((volIDX % progressDivisor) == 0)
-									IJ.showProgress((float) volIDX / (float) extent[0]);
-								// start[0] = volIDX;
-
-								for (int lev = 0; lev < extent[1]; ++lev) {
-									// select hyperslab for lev
-									// start[1] = lev;
-									// Object slice = var.read();
-									int startIdx = (int)((volIDX * singleVolumeSize) + (lev * stackSize));
-									int endIdx = (int)(startIdx+stackSize-1);
-//									long numElements = stackSize;
-
-									convertDatatypesAndSlice(datatypeIfUnsupported, stack, wholeDataset, startIdx, endIdx);
-								}
-							}
-
-							IJ.showProgress(1.f);
-							ImagePlus imp = new ImagePlus(directory + name + " " + var.getName(), stack);
-							// new for hyperstack
-							int nChannels = 1;
-							int nSlices = (int) extent[1];
-							int nFrames = (int) extent[0];
-							Integer nFramesI = nFrames;
-							Integer nSlicesI = nSlices;
-							logger.info("nFrames: " + nFramesI.toString());
-							logger.info("nSlices: " + nSlicesI.toString());
-
-							Integer myStackSize = stack.getSize();
-							logger.info("stackSize: " + myStackSize.toString());
-
-							imp.setDimensions(nChannels, nSlices, nFrames);
-							imp.setOpenAsHyperStack(true);
-
-							imp.getCalibration().pixelDepth = elem_sizes[0];
-							imp.getCalibration().pixelHeight = elem_sizes[1];
-							imp.getCalibration().pixelWidth = elem_sizes[2];
-							// getMinMax();
-							// imp.setDisplayRange(0,229);
-							imp.resetDisplayRange();
-							imp.show();
-						}
-					} else if (rank == 3 && extent[2] == 3) {
-						logger.info("This is an rgb image");
-						// create a new image stack and fill in the data
-						ImageStack stack = new ImageStack((int) extent[1], (int) extent[0]);
-
-						long[] selected = var.getSelectedDims(); // the
-						// selected
-						// size of
-						// the
-						// dataet
-						selected[0] = extent[0];
-						selected[1] = extent[1];
-						selected[2] = extent[2];
-						Object slice = var.read();
-						// check for unsigned datatype
-						int unsignedConvSelec = 0;
-						Datatype dType = var.getDatatype();
-						boolean isSigned16Bit = !dType.isUnsigned() && (dType.getDatatypeClass() == Datatype.CLASS_INTEGER) && (dType.getDatatypeSize() == 2);
-						if (isSigned16Bit) {
-							GenericDialog convDiag = new GenericDialog("Unsigend to signed conversion");
-							convDiag.addMessage("Detected unsigned datatype, which " + "is not supported.");
-							String[] convOptions = new String[2];
-							convOptions[0] = "cut off values";
-							convOptions[1] = "convert to float";
-							convDiag.addChoice("Please select an conversion option:", convOptions, convOptions[0]);
-							convDiag.showDialog();
-							if (convDiag.wasCanceled())
-								return;
-							unsignedConvSelec = convDiag.getNextChoiceIndex();
-							slice = convertToUnsigned(slice, unsignedConvSelec);
-						}
-
-						int size = (int) (extent[1] * extent[0]);
-
-						// ugly but working: copy pixel by pixel
-						copyPixels(extent, stack, slice, size);
-						
-						IJ.showProgress(1.f);
-						ImagePlus imp = new ImagePlus(directory + name + " " + var.getName(), stack);
-						// new for hyperstack
-						int nChannels = 3;
-						int nSlices = 1;
-						int nFrames = 1;
-						imp.setDimensions(nChannels, nSlices, nFrames);
-						imp = new CompositeImage(imp, CompositeImage.COMPOSITE);
-						imp.setOpenAsHyperStack(true);
-
-						imp.getCalibration().pixelDepth = elem_sizes[0];
-						imp.getCalibration().pixelHeight = elem_sizes[1];
-						imp.getCalibration().pixelWidth = elem_sizes[2];
-						// getMinMax();
-						imp.resetDisplayRange();
-						imp.show();
-						imp.updateStatusbarValue();
-					} else if (rank == 3) {
-						logger.info("Rank is 3");
-
-						// create a new image stack and fill in the data
-						ImageStack stack = new ImageStack((int) extent[2], (int) extent[1]);
-
-						long[] selected = var.getSelectedDims(); // the
-						// selected
-						// size of
-						// the
-						// dataet
-						selected[0] = extent[0];
-						selected[1] = extent[1];
-						selected[2] = extent[2];
-						Object wholeDataset = var.read();
-						// check for unsigned datatype
-						int unsignedConvSelec = 0;
-						Datatype dType = var.getDatatype();
-						boolean isSigned16Bit = !dType.isUnsigned() && (dType.getDatatypeClass() == Datatype.CLASS_INTEGER) && (dType.getDatatypeSize() == 2);
-
-						if (isSigned16Bit) {
-							GenericDialog convDiag = new GenericDialog("Unsigend to signed conversion");
-							convDiag.addMessage("Detected unsigned datatype, which " + "is not supported.");
-							String[] convOptions = new String[2];
-							convOptions[0] = "cut off values";
-							convOptions[1] = "convert to float";
-							convDiag.addChoice("Please select an conversion option:", convOptions, convOptions[0]);
-							convDiag.showDialog();
-							if (convDiag.wasCanceled())
-								return;
-							unsignedConvSelec = convDiag.getNextChoiceIndex();
-							wholeDataset = convertToUnsigned(wholeDataset, unsignedConvSelec);
-						}
-
-						long stackSize = extent[1] * extent[2];
-
-						for (int lev = 0; lev < extent[0]; ++lev) {
-							if ((lev % progressDivisor) == 0)
-								IJ.showProgress((float) lev / (float) extent[0]);
-							// select hyperslab for lev
-							// start[0] = lev;
-							// Object slice = var.read();
-
-							int startIdx = (int)(lev * stackSize);
-							int endIdx = (int)(startIdx+stackSize-1);
-//							long numElements = stackSize;
-							convertDatatypesAndSlice(datatypeIfUnsupported, stack, wholeDataset, startIdx, endIdx);
-						}
-						IJ.showProgress(1.f);
-						ImagePlus imp = new ImagePlus(directory + name + " " + var.getName(), stack);
-						imp.getCalibration().pixelDepth = elem_sizes[0];
-						imp.getCalibration().pixelHeight = elem_sizes[1];
-						imp.getCalibration().pixelWidth = elem_sizes[2];
-						// getMinMax();
-						imp.resetDisplayRange();
-						imp.show();
-						imp.updateStatusbarValue();
-					} else if (rank == 2) {
-
-						// check if we have an unsupported datatype
-						if (datatype.getDatatypeClass() == Datatype.CLASS_INTEGER && (datatype.getDatatypeSize() == 4 || datatype.getDatatypeSize() == 8)) {
-							logger.info("Datatype not supported by ImageJ");
-							GenericDialog typeSelDiag = new GenericDialog("Datatype Selection");
-							typeSelDiag.addMessage("The datatype `" + datatype.getDatatypeDescription() + "` is not supported by ImageJ.\n\n");
-							typeSelDiag.addMessage("Please select your wanted datatype.\n");
-							String[] choices = new String[2];
-							choices[0] = "float";
-							choices[1] = "short";
-							typeSelDiag.addChoice("      Possible types are", choices, "float");
-							typeSelDiag.showDialog();
-
-							if (typeSelDiag.wasCanceled()) {
-								return;
-							}
-							int selection = typeSelDiag.getNextChoiceIndex();
-							if (selection == 0) {
-								logger.info("float selected");
-								datatypeIfUnsupported = new H5Datatype(Datatype.CLASS_FLOAT, Datatype.NATIVE, Datatype.NATIVE, -1);
-							}
-							if (selection == 1) {
-								logger.info("short selected");
-								int typeSizeInByte = 2;
-								datatypeIfUnsupported = new H5Datatype(Datatype.CLASS_INTEGER, typeSizeInByte, Datatype.NATIVE, -1);
-							}
-						}
-						IJ.showProgress(0.f);
-						ImageStack stack = new ImageStack((int) extent[1], (int) extent[0]);
-						Object slice = var.read();
-						// check for unsigned datatype
-						int unsignedConvSelec = 0;
-						Datatype dType = var.getDatatype();
-						boolean isSigned16Bit = !dType.isUnsigned() && (dType.getDatatypeClass() == Datatype.CLASS_INTEGER) && (dType.getDatatypeSize() == 2);
-						if (isSigned16Bit) {
-							GenericDialog convDiag = new GenericDialog("Unsigend to signed conversion");
-							convDiag.addMessage("Detected unsigned datatype, which " + "is not supported.");
-							String[] convOptions = new String[2];
-							convOptions[0] = "cut off values";
-							convOptions[1] = "convert to float";
-							convDiag.addChoice("Please select an conversion option:", convOptions, convOptions[0]);
-							convDiag.showDialog();
-							if (convDiag.wasCanceled())
-								return;
-							unsignedConvSelec = convDiag.getNextChoiceIndex();
-							slice = convertToUnsigned(slice, unsignedConvSelec);
-						}
-
-						if (slice instanceof byte[]) {
-							byte[] tmp = (byte[]) slice;
-							stack.addSlice(null, tmp);
-						} else if (slice instanceof short[]) {
-							short[] tmp = (short[]) slice;
-							stack.addSlice(null, tmp);
-						} else if (slice instanceof int[]) {
-							int[] tmp = (int[]) slice;
-							if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
-								stack.addSlice(null, convertInt32ToFloat(tmp));
-							}
-							if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
-								stack.addSlice(null, convertInt32ToShort(tmp));
-							}
-						} else if (slice instanceof long[]) {
-							long[] tmp = (long[]) slice;
-							if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
-								stack.addSlice(null, convertInt64ToFloat(tmp));
-							}
-							if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
-								stack.addSlice(null, convertInt64ToShort(tmp));
-							}
-						} else if (slice instanceof float[]) {
-							float[] tmp = (float[]) slice;
-							stack.addSlice(null, tmp);
-						} else if (slice instanceof double[]) {
-							float[] tmp = convertDoubleToFloat((double[]) slice);
-
-							stack.addSlice(null, tmp);
-						} else {
-							// try to put pixels on stack
-							stack.addSlice(null, slice);
-						}
-						IJ.showProgress(1.f);
-						ImagePlus imp = new ImagePlus(directory + name + " " + var.getName(), stack);
-						imp.getProcessor().resetMinAndMax();
-						imp.show();
-
-						ImageProcessor ips = imp.getProcessor();
-
-						double imgMax = ips.getMax();
-						double imgMin = ips.getMin();
-
-						logger.info("   Min = " + imgMin + ", Max = " + imgMax);
-						ips.setMinAndMax(imgMin, imgMax);
-						imp.updateAndDraw();
-						imp.show();
-						imp.updateStatusbarValue();
-					} else {
-						System.err.println("   Error: Variable Dimensions " + rank + " not supported (yet).");
-						IJ.showStatus("Variable Dimension " + rank + " not supported");
+					IJ.showProgress(0.f);
+					ImageStack stack = new ImageStack((int) extent[1], (int) extent[0]);
+					Object slice = var.read();
+					// check for unsigned datatype
+					int unsignedConvSelec = 0;
+					Datatype dType = var.getDatatype();
+					boolean isSigned16Bit = !dType.isUnsigned() && (dType.getDatatypeClass() == Datatype.CLASS_INTEGER) && (dType.getDatatypeSize() == 2);
+					if (isSigned16Bit) {
+						GenericDialog convDiag = new GenericDialog("Unsigend to signed conversion");
+						convDiag.addMessage("Detected unsigned datatype, which " + "is not supported.");
+						String[] convOptions = new String[2];
+						convOptions[0] = "cut off values";
+						convOptions[1] = "convert to float";
+						convDiag.addChoice("Please select an conversion option:", convOptions, convOptions[0]);
+						convDiag.showDialog();
+						if (convDiag.wasCanceled())
+							return;
+						unsignedConvSelec = convDiag.getNextChoiceIndex();
+						slice = convertToUnsigned(slice, unsignedConvSelec);
 					}
+
+					if (slice instanceof byte[]) {
+						byte[] tmp = (byte[]) slice;
+						stack.addSlice(null, tmp);
+					} else if (slice instanceof short[]) {
+						short[] tmp = (short[]) slice;
+						stack.addSlice(null, tmp);
+					} else if (slice instanceof int[]) {
+						int[] tmp = (int[]) slice;
+						if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
+							stack.addSlice(null, convertInt32ToFloat(tmp));
+						}
+						if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
+							stack.addSlice(null, convertInt32ToShort(tmp));
+						}
+					} else if (slice instanceof long[]) {
+						long[] tmp = (long[]) slice;
+						if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
+							stack.addSlice(null, convertInt64ToFloat(tmp));
+						}
+						if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
+							stack.addSlice(null, convertInt64ToShort(tmp));
+						}
+					} else if (slice instanceof float[]) {
+						float[] tmp = (float[]) slice;
+						stack.addSlice(null, tmp);
+					} else if (slice instanceof double[]) {
+						float[] tmp = convertDoubleToFloat((double[]) slice);
+
+						stack.addSlice(null, tmp);
+					} else {
+						// try to put pixels on stack
+						stack.addSlice(null, slice);
+					}
+					IJ.showProgress(1.f);
+					ImagePlus imp = new ImagePlus(directory + name + " " + datasetName, stack);
+					imp.getProcessor().resetMinAndMax();
+					imp.show();
+
+					ImageProcessor ips = imp.getProcessor();
+
+					double imgMax = ips.getMax();
+					double imgMin = ips.getMin();
+
+					logger.info("   Min = " + imgMin + ", Max = " + imgMax);
+					ips.setMinAndMax(imgMin, imgMax);
+					imp.updateAndDraw();
+					imp.show();
+					imp.updateStatusbarValue();
+				} else {
+					System.err.println("   Error: Variable Dimensions " + rank + " not supported (yet).");
+					IJ.showStatus("Variable Dimension " + rank + " not supported");
 				}
 			}
 
@@ -724,19 +603,96 @@ public class HDF5Reader implements PlugIn {
 		} catch (OutOfMemoryError o) {
 			IJ.outOfMemory("Load HDF5");
 		}
-		
-		// make sure the file is closed after working with it
-		// FIXME: should happen in catch-part, too!
-		try {
-			if (inFile != null)
-				inFile.close();
-		} catch (HDF5Exception err) {
-			System.err.println("Error while closing '" + directory + name + "'");
-			System.err.println(err);
-			IJ.showStatus("Error closing file.");
+		finally{
+			try {
+				if (inFile != null){
+					inFile.close();
+				}
+			} catch (HDF5Exception err) {
+				System.err.println("Error while closing '" + directory + name + "'");
+				System.err.println(err);
+				IJ.showStatus("Error closing file.");
+			}
 		}
-
+		
 		IJ.showProgress(1.0);
+	}
+
+
+	/**
+	 * Selection of the datasets to visualize
+	 * 
+	 * @param datasets
+	 * @return	List of datasets to visualize. If nothing selected the list will be empty
+	 * @throws HDF5Exception
+	 */
+	private List<Dataset> selectDatasets(List<Dataset> datasets) throws HDF5Exception {
+		
+		List<Dataset> selectedDatasets = new ArrayList<>();
+		GenericDialog gd = new GenericDialog("Variable Name Selection");
+		gd.addMessage("Please select variables to be loaded.\n");
+		
+		if (datasets.size() < 1) {
+			IJ.error("The file does not contain datasets");
+		} else if (datasets.size() > 1000) {
+			
+			logger.info("#######");
+			for(Dataset d: datasets){
+				logger.info(d.getFullName());
+			}
+			logger.info("#######");
+			
+			gd = new GenericDialog("Variable Name Selection");
+			gd.addMessage("There are lots of datasets in your file (check the log output which datasets are available)! Please enter the full path of the dataset to be displayed");
+			gd.addStringField("Dataset", "");
+			gd.showDialog();
+
+			if (!gd.wasCanceled()) {
+				String dsName = gd.getNextString();
+				for(Dataset d: datasets){
+					if(d.getFullName().equals(dsName)){
+						selectedDatasets.add(d);
+					}
+				}
+				if(selectedDatasets.isEmpty()){
+					IJ.error("The file does not contain a variable with name " + "`" + dsName + "`!");
+				}
+			}
+		} else {
+			String[] varSelections = new String[datasets.size()];
+			boolean[] defaultValues = new boolean[datasets.size()];
+			for (int i = 0; i < datasets.size(); i++) {
+				Dataset var = datasets.get(i);
+				int rank = var.getRank();
+				String title = rank + "D: " + var.getFullName() + "              " + var.getDatatype().getDatatypeDescription() + "( ";
+				long[] extent = var.getDims();
+				for (int d = 0; d < rank; ++d) {
+					if (d != 0){
+						title += "x";
+					}
+					title += extent[d];
+				}
+				title += ")";
+				varSelections[i] = title;
+				defaultValues[i] = false;
+			}
+			logger.info("Add checkbox group with " + datasets.size() + " rows");
+			gd.addCheckboxGroup(datasets.size(), 1, varSelections, defaultValues);
+			addScrollBars(gd);
+			gd.showDialog();
+
+			if (!gd.wasCanceled()) {
+				// Get selected datasets
+				for (int i = 0; i < datasets.size(); ++i) {
+					if (gd.getNextBoolean()) {
+						selectedDatasets.add(datasets.get(i));
+					}
+				}
+			}
+		}
+		
+		
+		return selectedDatasets;
 	}
 
 
@@ -945,7 +901,7 @@ public class HDF5Reader implements PlugIn {
 	 * @param slice
 	 * @param size
 	 */
-	private void copyPixels(long[] extent, ImageStack stack, Object slice, int size) {
+	private void copyPixels2(long[] extent, ImageStack stack, Object slice, int size) {
 		if (slice instanceof byte[]) {
 			byte[] tmp = (byte[]) slice;
 			byte[] rChannel = new byte[size];
@@ -1060,7 +1016,7 @@ public class HDF5Reader implements PlugIn {
 	 * @param endIdx
 	 * @param size
 	 */
-	private void copyPixel1(long[] extent, ImageStack stack, Object wholeDataset, int startIdx, int endIdx, int size) {
+	private void copyPixels1(long[] extent, ImageStack stack, Object wholeDataset, int startIdx, int endIdx, int size) {
 		if (wholeDataset instanceof byte[]) {
 			byte[] tmp = Arrays.copyOfRange((byte[]) wholeDataset, startIdx, endIdx);
 			byte[] rChannel = new byte[size];
@@ -1166,32 +1122,6 @@ public class HDF5Reader implements PlugIn {
 		}
 	}
 
-	/**
-	 * Recursively get list of all datasets in file
-	 * @param group		Group to search for datasets
-	 * @param datasets	List of datasets
-	 * @return	List of datasets or null if group is null
-	 */
-	private List<Dataset> getDatasets(Group group, List<Dataset> datasets) {
-		if (group == null){
-			return datasets;
-		}
-
-		for (HObject o: group.getMemberList()) {
-			if (o instanceof Dataset) {
-				((Dataset) o).init();
-				datasets.add((Dataset) o);
-			} else if (o instanceof Group) {
-				datasets = (getDatasets((Group) o, datasets));
-			}
-		}
-		return datasets;
-	}
-
-	
-	
-
-	
 	private float[] convertDoubleToFloat(double[] dataIn) {
 		float[] dataOut = new float[dataIn.length];
 		for (int index = 0; index < dataIn.length; index++) {
