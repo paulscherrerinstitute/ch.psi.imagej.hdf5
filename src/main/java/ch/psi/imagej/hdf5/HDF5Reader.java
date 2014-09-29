@@ -96,7 +96,7 @@ public class HDF5Reader implements PlugIn {
 			
 			List<Dataset> datasets = HDF5Utilities.getDatasets(inFile);
 			List<Dataset> selectedDatasets = selectDatasets(datasets);
-			
+
 			for (Dataset var : selectedDatasets) {
 				// Read dataset attributes and properties
 				String datasetName = var.getName();
@@ -206,7 +206,7 @@ public class HDF5Reader implements PlugIn {
 							// long numElements = stackSize * 3;
 							int endIdx = (int) (startIdx + stackSize * 3 - 1);
 
-							copyPixels3(datatypeIfUnsupported, extent, stack, wholeDataset, size, startIdx, endIdx);
+							copyPixels3(datatypeIfUnsupported, (int)extent[2], (int)extent[3], stack, wholeDataset, size, startIdx, endIdx);
 						}
 					}
 
@@ -287,7 +287,7 @@ public class HDF5Reader implements PlugIn {
 							// startIdx, numElements);
 
 							int size = (int) (extent[2] * extent[1]);
-							copyPixels1(extent, stack, wholeDataset, startIdx, endIdx, size);
+							copyPixels1((int)extent[1], (int)extent[2], stack, wholeDataset, startIdx, endIdx, size);
 						}
 						ImagePlus imp = new ImagePlus(directory + name + " " + datasetName, stack);
 						// new for hyperstack
@@ -357,7 +357,7 @@ public class HDF5Reader implements PlugIn {
 								// start[1] = lev;
 								// Object slice = var.read();
 								int startIdx = (int) ((volIDX * singleVolumeSize) + (lev * stackSize));
-								int endIdx = (int) (startIdx + stackSize - 1);
+								int endIdx = (int) (startIdx + stackSize);
 								// long numElements = stackSize;
 
 								convertDatatypesAndSlice(datatypeIfUnsupported, stack, wholeDataset, startIdx, endIdx);
@@ -421,7 +421,7 @@ public class HDF5Reader implements PlugIn {
 					int size = (int) (extent[1] * extent[0]);
 
 					// ugly but working: copy pixel by pixel
-					copyPixels2(extent, stack, slice, size);
+					copyPixels2((int)extent[0], (int)extent[1], stack, slice, size);
 
 					IJ.showProgress(1.f);
 					ImagePlus imp = new ImagePlus(directory + name + " " + datasetName, stack);
@@ -482,7 +482,7 @@ public class HDF5Reader implements PlugIn {
 						// Object slice = var.read();
 
 						int startIdx = (int) (lev * stackSize);
-						int endIdx = (int) (startIdx + stackSize - 1);
+						int endIdx = (int) (startIdx + stackSize);
 						// long numElements = stackSize;
 						convertDatatypesAndSlice(datatypeIfUnsupported, stack, wholeDataset, startIdx, endIdx);
 					}
@@ -740,22 +740,24 @@ public class HDF5Reader implements PlugIn {
 	/**
 	 * @param datatypeIfUnsupported
 	 * @param extent
+	 * @param nRows (extent[2])
+	 * @param nColumns (extent[3])
 	 * @param stack
 	 * @param wholeDataset
 	 * @param size
 	 * @param startIdx
 	 * @param endIdx
 	 */
-	private void copyPixels3(Datatype datatypeIfUnsupported, long[] extent, ImageStack stack, Object wholeDataset, int size, int startIdx, int endIdx) {
+	private void copyPixels3(Datatype datatypeIfUnsupported, int nRows, int nColumns, ImageStack stack, Object wholeDataset, int size, int startIdx, int endIdx) {
 		if (wholeDataset instanceof byte[]) {
 			byte[] tmp = Arrays.copyOfRange((byte[]) wholeDataset, startIdx, endIdx);
 			byte[] rChannel = new byte[size];
 			byte[] gChannel = new byte[size];
 			byte[] bChannel = new byte[size];
-			for (int row = 0; row < extent[2]; ++row) {
-				for (int col = 0; col < extent[3]; ++col) {
-					int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-					int offset = (row * (int) extent[2]) + col;
+			for (int row = 0; row < nRows; ++row) {
+				for (int col = 0; col < nColumns; ++col) {
+					int offsetRGB = (row * nRows * 3) + (col * 3);
+					int offset = (row * nRows) + col;
 					rChannel[offset] = tmp[offsetRGB + 0];
 					gChannel[offset] = tmp[offsetRGB + 1];
 					bChannel[offset] = tmp[offsetRGB + 2];
@@ -769,10 +771,10 @@ public class HDF5Reader implements PlugIn {
 			short[] rChannel = new short[size];
 			short[] gChannel = new short[size];
 			short[] bChannel = new short[size];
-			for (int row = 0; row < extent[2]; ++row) {
-				for (int col = 0; col < extent[3]; ++col) {
-					int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-					int offset = (row * (int) extent[2]) + col;
+			for (int row = 0; row < nRows; ++row) {
+				for (int col = 0; col < nColumns; ++col) {
+					int offsetRGB = (row * nRows * 3) + (col * 3);
+					int offset = (row * nRows) + col;
 					rChannel[offset] = tmp[offsetRGB + 0];
 					gChannel[offset] = tmp[offsetRGB + 1];
 					bChannel[offset] = tmp[offsetRGB + 2];
@@ -787,10 +789,10 @@ public class HDF5Reader implements PlugIn {
 				float[] rChannel = new float[size];
 				float[] gChannel = new float[size];
 				float[] bChannel = new float[size];
-				for (int row = 0; row < extent[2]; ++row) {
-					for (int col = 0; col < extent[3]; ++col) {
-						int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-						int offset = (row * (int) extent[2]) + col;
+				for (int row = 0; row < nRows; ++row) {
+					for (int col = 0; col < nColumns; ++col) {
+						int offsetRGB = (row * nRows * 3) + (col * 3);
+						int offset = (row * nRows) + col;
 						rChannel[offset] = tmp[offsetRGB + 0];
 						gChannel[offset] = tmp[offsetRGB + 1];
 						bChannel[offset] = tmp[offsetRGB + 2];
@@ -805,10 +807,10 @@ public class HDF5Reader implements PlugIn {
 				short[] rChannel = new short[size];
 				short[] gChannel = new short[size];
 				short[] bChannel = new short[size];
-				for (int row = 0; row < extent[2]; ++row) {
-					for (int col = 0; col < extent[3]; ++col) {
-						int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-						int offset = (row * (int) extent[2]) + col;
+				for (int row = 0; row < nRows; ++row) {
+					for (int col = 0; col < nColumns; ++col) {
+						int offsetRGB = (row * nRows * 3) + (col * 3);
+						int offset = (row * nRows) + col;
 						rChannel[offset] = tmp[offsetRGB + 0];
 						gChannel[offset] = tmp[offsetRGB + 1];
 						bChannel[offset] = tmp[offsetRGB + 2];
@@ -824,10 +826,10 @@ public class HDF5Reader implements PlugIn {
 				float[] rChannel = new float[size];
 				float[] gChannel = new float[size];
 				float[] bChannel = new float[size];
-				for (int row = 0; row < extent[2]; ++row) {
-					for (int col = 0; col < extent[3]; ++col) {
-						int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-						int offset = (row * (int) extent[2]) + col;
+				for (int row = 0; row < nRows; ++row) {
+					for (int col = 0; col < nColumns; ++col) {
+						int offsetRGB = (row * nRows * 3) + (col * 3);
+						int offset = (row * nRows) + col;
 						rChannel[offset] = tmp[offsetRGB + 0];
 						gChannel[offset] = tmp[offsetRGB + 1];
 						bChannel[offset] = tmp[offsetRGB + 2];
@@ -842,10 +844,10 @@ public class HDF5Reader implements PlugIn {
 				short[] rChannel = new short[size];
 				short[] gChannel = new short[size];
 				short[] bChannel = new short[size];
-				for (int row = 0; row < extent[2]; ++row) {
-					for (int col = 0; col < extent[3]; ++col) {
-						int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-						int offset = (row * (int) extent[2]) + col;
+				for (int row = 0; row < nRows; ++row) {
+					for (int col = 0; col < nColumns; ++col) {
+						int offsetRGB = (row * nRows * 3) + (col * 3);
+						int offset = (row * nRows) + col;
 						rChannel[offset] = tmp[offsetRGB + 0];
 						gChannel[offset] = tmp[offsetRGB + 1];
 						bChannel[offset] = tmp[offsetRGB + 2];
@@ -860,10 +862,10 @@ public class HDF5Reader implements PlugIn {
 			float[] rChannel = new float[size];
 			float[] gChannel = new float[size];
 			float[] bChannel = new float[size];
-			for (int row = 0; row < extent[2]; ++row) {
-				for (int col = 0; col < extent[3]; ++col) {
-					int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-					int offset = (row * (int) extent[2]) + col;
+			for (int row = 0; row < nRows; ++row) {
+				for (int col = 0; col < nColumns; ++col) {
+					int offsetRGB = (row * nRows * 3) + (col * 3);
+					int offset = (row * nRows) + col;
 					rChannel[offset] = tmp[offsetRGB + 0];
 					gChannel[offset] = tmp[offsetRGB + 1];
 					bChannel[offset] = tmp[offsetRGB + 2];
@@ -877,10 +879,10 @@ public class HDF5Reader implements PlugIn {
 			float[] rChannel = new float[size];
 			float[] gChannel = new float[size];
 			float[] bChannel = new float[size];
-			for (int row = 0; row < extent[2]; ++row) {
-				for (int col = 0; col < extent[3]; ++col) {
-					int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-					int offset = (row * (int) extent[2]) + col;
+			for (int row = 0; row < nRows; ++row) {
+				for (int col = 0; col < nColumns; ++col) {
+					int offsetRGB = (row * nRows * 3) + (col * 3);
+					int offset = (row * nRows) + col;
 					rChannel[offset] = tmp[offsetRGB + 0];
 					gChannel[offset] = tmp[offsetRGB + 1];
 					bChannel[offset] = tmp[offsetRGB + 2];
@@ -896,21 +898,22 @@ public class HDF5Reader implements PlugIn {
 
 
 	/**
-	 * @param extent
+	 * @param nRows (extent[0])
+	 * @param nColumns (extent[1])
 	 * @param stack
 	 * @param slice
 	 * @param size
 	 */
-	private void copyPixels2(long[] extent, ImageStack stack, Object slice, int size) {
+	private void copyPixels2(int nRows, int nColumns, ImageStack stack, Object slice, int size) {
 		if (slice instanceof byte[]) {
 			byte[] tmp = (byte[]) slice;
 			byte[] rChannel = new byte[size];
 			byte[] gChannel = new byte[size];
 			byte[] bChannel = new byte[size];
-			for (int row = 0; row < extent[0]; ++row) {
-				for (int col = 0; col < extent[1]; ++col) {
-					int offsetRGB = (row * (int) extent[1] * 3) + (col * 3);
-					int offset = (row * (int) extent[1]) + col;
+			for (int row = 0; row < nRows; ++row) {
+				for (int col = 0; col < nColumns; ++col) {
+					int offsetRGB = (row * nColumns * 3) + (col * 3);
+					int offset = (row * nColumns) + col;
 					rChannel[offset] = tmp[offsetRGB + 0];
 					gChannel[offset] = tmp[offsetRGB + 1];
 					bChannel[offset] = tmp[offsetRGB + 2];
@@ -924,10 +927,10 @@ public class HDF5Reader implements PlugIn {
 			short[] rChannel = new short[size];
 			short[] gChannel = new short[size];
 			short[] bChannel = new short[size];
-			for (int row = 0; row < extent[0]; ++row) {
-				for (int col = 0; col < extent[1]; ++col) {
-					int offsetRGB = (row * (int) extent[1] * 3) + (col * 3);
-					int offset = (row * (int) extent[1]) + col;
+			for (int row = 0; row < nRows; ++row) {
+				for (int col = 0; col < nColumns; ++col) {
+					int offsetRGB = (row * nColumns * 3) + (col * 3);
+					int offset = (row * nColumns) + col;
 					rChannel[offset] = tmp[offsetRGB + 0];
 					gChannel[offset] = tmp[offsetRGB + 1];
 					bChannel[offset] = tmp[offsetRGB + 2];
@@ -941,10 +944,10 @@ public class HDF5Reader implements PlugIn {
 			int[] rChannel = new int[size];
 			int[] gChannel = new int[size];
 			int[] bChannel = new int[size];
-			for (int row = 0; row < extent[0]; ++row) {
-				for (int col = 0; col < extent[1]; ++col) {
-					int offsetRGB = (row * (int) extent[1] * 3) + (col * 3);
-					int offset = (row * (int) extent[1]) + col;
+			for (int row = 0; row < nRows; ++row) {
+				for (int col = 0; col < nColumns; ++col) {
+					int offsetRGB = (row * nColumns * 3) + (col * 3);
+					int offset = (row * nColumns) + col;
 					rChannel[offset] = tmp[offsetRGB + 0];
 					gChannel[offset] = tmp[offsetRGB + 1];
 					bChannel[offset] = tmp[offsetRGB + 2];
@@ -958,10 +961,10 @@ public class HDF5Reader implements PlugIn {
 			long[] rChannel = new long[size];
 			long[] gChannel = new long[size];
 			long[] bChannel = new long[size];
-			for (int row = 0; row < extent[0]; ++row) {
-				for (int col = 0; col < extent[1]; ++col) {
-					int offsetRGB = (row * (int) extent[1] * 3) + (col * 3);
-					int offset = (row * (int) extent[1]) + col;
+			for (int row = 0; row < nRows; ++row) {
+				for (int col = 0; col < nColumns; ++col) {
+					int offsetRGB = (row * nColumns * 3) + (col * 3);
+					int offset = (row * nColumns) + col;
 					rChannel[offset] = tmp[offsetRGB + 0];
 					gChannel[offset] = tmp[offsetRGB + 1];
 					bChannel[offset] = tmp[offsetRGB + 2];
@@ -975,10 +978,10 @@ public class HDF5Reader implements PlugIn {
 			float[] rChannel = new float[size];
 			float[] gChannel = new float[size];
 			float[] bChannel = new float[size];
-			for (int row = 0; row < extent[0]; ++row) {
-				for (int col = 0; col < extent[1]; ++col) {
-					int offsetRGB = (row * (int) extent[1] * 3) + (col * 3);
-					int offset = (row * (int) extent[1]) + col;
+			for (int row = 0; row < nRows; ++row) {
+				for (int col = 0; col < nColumns; ++col) {
+					int offsetRGB = (row * nColumns * 3) + (col * 3);
+					int offset = (row * nColumns) + col;
 					rChannel[offset] = tmp[offsetRGB + 0];
 					gChannel[offset] = tmp[offsetRGB + 1];
 					bChannel[offset] = tmp[offsetRGB + 2];
@@ -992,10 +995,10 @@ public class HDF5Reader implements PlugIn {
 			double[] rChannel = new double[size];
 			double[] gChannel = new double[size];
 			double[] bChannel = new double[size];
-			for (int row = 0; row < extent[0]; ++row) {
-				for (int col = 0; col < extent[1]; ++col) {
-					int offsetRGB = (row * (int) extent[1] * 3) + (col * 3);
-					int offset = (row * (int) extent[1]) + col;
+			for (int row = 0; row < nRows; ++row) {
+				for (int col = 0; col < nColumns; ++col) {
+					int offsetRGB = (row * nColumns * 3) + (col * 3);
+					int offset = (row * nColumns) + col;
 					rChannel[offset] = tmp[offsetRGB + 0];
 					gChannel[offset] = tmp[offsetRGB + 1];
 					bChannel[offset] = tmp[offsetRGB + 2];
@@ -1009,23 +1012,24 @@ public class HDF5Reader implements PlugIn {
 
 
 	/**
-	 * @param extent
+	 * @param nRows
+	 * @param nColumns
 	 * @param stack
 	 * @param wholeDataset
 	 * @param startIdx
 	 * @param endIdx
 	 * @param size
 	 */
-	private void copyPixels1(long[] extent, ImageStack stack, Object wholeDataset, int startIdx, int endIdx, int size) {
+	private void copyPixels1(int nRows, int nColumns, ImageStack stack, Object wholeDataset, int startIdx, int endIdx, int size) {
 		if (wholeDataset instanceof byte[]) {
 			byte[] tmp = Arrays.copyOfRange((byte[]) wholeDataset, startIdx, endIdx);
 			byte[] rChannel = new byte[size];
 			byte[] gChannel = new byte[size];
 			byte[] bChannel = new byte[size];
-			for (int row = 0; row < extent[1]; ++row) {
-				for (int col = 0; col < extent[2]; ++col) {
-					int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-					int offset = (row * (int) extent[2]) + col;
+			for (int row = 0; row < nRows; ++row) {
+				for (int col = 0; col < nColumns; ++col) {
+					int offsetRGB = (row * nColumns * 3) + (col * 3);
+					int offset = (row * nColumns) + col;
 					rChannel[offset] = tmp[offsetRGB + 0];
 					gChannel[offset] = tmp[offsetRGB + 1];
 					bChannel[offset] = tmp[offsetRGB + 2];
@@ -1039,10 +1043,10 @@ public class HDF5Reader implements PlugIn {
 			short[] rChannel = new short[size];
 			short[] gChannel = new short[size];
 			short[] bChannel = new short[size];
-			for (int row = 0; row < extent[1]; ++row) {
-				for (int col = 0; col < extent[2]; ++col) {
-					int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-					int offset = (row * (int) extent[2]) + col;
+			for (int row = 0; row < nRows; ++row) {
+				for (int col = 0; col < nColumns; ++col) {
+					int offsetRGB = (row * nColumns * 3) + (col * 3);
+					int offset = (row * nColumns) + col;
 					rChannel[offset] = tmp[offsetRGB + 0];
 					gChannel[offset] = tmp[offsetRGB + 1];
 					bChannel[offset] = tmp[offsetRGB + 2];
@@ -1056,10 +1060,10 @@ public class HDF5Reader implements PlugIn {
 			int[] rChannel = new int[size];
 			int[] gChannel = new int[size];
 			int[] bChannel = new int[size];
-			for (int row = 0; row < extent[1]; ++row) {
-				for (int col = 0; col < extent[2]; ++col) {
-					int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-					int offset = (row * (int) extent[2]) + col;
+			for (int row = 0; row < nRows; ++row) {
+				for (int col = 0; col < nColumns; ++col) {
+					int offsetRGB = (row * nColumns * 3) + (col * 3);
+					int offset = (row * nColumns) + col;
 					rChannel[offset] = tmp[offsetRGB + 0];
 					gChannel[offset] = tmp[offsetRGB + 1];
 					bChannel[offset] = tmp[offsetRGB + 2];
@@ -1073,10 +1077,10 @@ public class HDF5Reader implements PlugIn {
 			long[] rChannel = new long[size];
 			long[] gChannel = new long[size];
 			long[] bChannel = new long[size];
-			for (int row = 0; row < extent[1]; ++row) {
-				for (int col = 0; col < extent[2]; ++col) {
-					int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-					int offset = (row * (int) extent[2]) + col;
+			for (int row = 0; row < nRows; ++row) {
+				for (int col = 0; col < nColumns; ++col) {
+					int offsetRGB = (row * nColumns * 3) + (col * 3);
+					int offset = (row * nColumns) + col;
 					rChannel[offset] = tmp[offsetRGB + 0];
 					gChannel[offset] = tmp[offsetRGB + 1];
 					bChannel[offset] = tmp[offsetRGB + 2];
@@ -1090,10 +1094,10 @@ public class HDF5Reader implements PlugIn {
 			float[] rChannel = new float[size];
 			float[] gChannel = new float[size];
 			float[] bChannel = new float[size];
-			for (int row = 0; row < extent[1]; ++row) {
-				for (int col = 0; col < extent[2]; ++col) {
-					int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-					int offset = (row * (int) extent[2]) + col;
+			for (int row = 0; row < nRows; ++row) {
+				for (int col = 0; col < nColumns; ++col) {
+					int offsetRGB = (row * nColumns * 3) + (col * 3);
+					int offset = (row * nColumns) + col;
 					rChannel[offset] = tmp[offsetRGB + 0];
 					gChannel[offset] = tmp[offsetRGB + 1];
 					bChannel[offset] = tmp[offsetRGB + 2];
@@ -1107,10 +1111,10 @@ public class HDF5Reader implements PlugIn {
 			double[] rChannel = new double[size];
 			double[] gChannel = new double[size];
 			double[] bChannel = new double[size];
-			for (int row = 0; row < extent[1]; ++row) {
-				for (int col = 0; col < extent[2]; ++col) {
-					int offsetRGB = (row * (int) extent[2] * 3) + (col * 3);
-					int offset = (row * (int) extent[2]) + col;
+			for (int row = 0; row < nRows; ++row) {
+				for (int col = 0; col < nColumns; ++col) {
+					int offsetRGB = (row * nColumns * 3) + (col * 3);
+					int offset = (row * nColumns) + col;
 					rChannel[offset] = tmp[offsetRGB + 0];
 					gChannel[offset] = tmp[offsetRGB + 1];
 					bChannel[offset] = tmp[offsetRGB + 2];
