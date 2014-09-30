@@ -37,13 +37,11 @@ public class HDF5Writer implements PlugInFilter {
 	private static final Logger logger = Logger.getLogger(HDF5Writer.class.getName());
 
 	public int setup(String arg, ImagePlus imp) {
-		// FIXME: set DOES_xx for image type here:
-		// currently RGB-Types are still missing
-		// see
-		// http://rsb.info.nih.gov/ij/developer/api/ij/plugin/filter/PlugInFilter.html
+		// see http://rsb.info.nih.gov/ij/developer/api/ij/plugin/filter/PlugInFilter.html
 		return DOES_8G + DOES_16 + DOES_32 + DOES_RGB + NO_CHANGES;
 	}
 
+	
 	public void run(ImageProcessor ip) {
 
 		// Check whether windows are open
@@ -52,14 +50,13 @@ public class HDF5Writer implements PlugInFilter {
 			return;
 		}
 
-		// Query for filename to save datat to
+		// Query for filename to save data
 		SaveDialog sd = new SaveDialog("Save HDF5 ...", "", ".h5");
 		String directory = sd.getDirectory();
 		String name = sd.getFileName();
 		if (name == null || name.equals("")){
 				return;
 		}
-
 		String filename = directory + name;
 		
 		// Retrieve an instance of the implementing class for the HDF5 format
@@ -103,7 +100,7 @@ public class HDF5Writer implements PlugInFilter {
 		// check for hyperstack
 		if (imp.getOpenAsHyperStack() || imp.isHyperStack()) {
 			logger.info("This is a hyperstack");
-			gd.addStringField(imp.getTitle(), "/t$T/channel$C");
+			gd.addStringField(imp.getTitle(), "/t$F/channel$C");
 			
 			gd.showDialog();
 			if (gd.wasCanceled()) {
@@ -123,7 +120,6 @@ public class HDF5Writer implements PlugInFilter {
 
 				// Split frames and channels
 					// parse format string
-					String[] formatTokens = HDF5GroupedVarnames.parseFormatString(formatString, "[0-9]+"); // dummy
 																											// regexp
 					long[] channelDims = null;
 					if (nSlices > 1) {
@@ -141,7 +137,9 @@ public class HDF5Writer implements PlugInFilter {
 					for (int f = 0; f < nFrames; f++) {
 						IJ.showProgress(f, nFrames);
 						for (int c = 0; c < nChannels; c++) {
-							String fullName = makeDataSetName(formatTokens, f, c);
+							String fullName = formatString;
+							fullName = fullName.replaceAll("$F", f+"");
+							fullName = fullName.replaceAll("$C", c+"");
 
 							String dataSetName = HDF5Utilities.getDataSetDescriptor(fullName);
 							String groupName = HDF5Utilities.getGroupDescriptor(fullName);
@@ -389,20 +387,6 @@ public class HDF5Writer implements PlugInFilter {
 
 	}
 
-	long[] findOptimalChunksize(int Rank, long[] dataDims) {
-		long[] best_chunksize = new long[Rank];
-		int maxChunkVol = 262144;
-		// small sanity check first:
-		int data_volume = 1;
-		for (int d = 0; d < Rank; ++d)
-			data_volume *= dataDims[d];
-		if (data_volume < maxChunkVol) {
-            System.arraycopy(dataDims, 0, best_chunksize, 0, Rank);
-			return best_chunksize;
-		} else
-			return null;
-	}
-
 	private Object computeRgbSlice(Object pixels) {
 		byte rgbslice[];
 		int size = ((int[]) pixels).length;
@@ -416,12 +400,5 @@ public class HDF5Writer implements PlugInFilter {
 			rgbslice[3 * i + 2] = (byte) blue;
 		}
 		return rgbslice;
-	}
-
-	private String makeDataSetName(String[] toks, int frame, int channel) {
-		String dName = toks[0] + Integer.toString(frame) + toks[1] + Integer.toString(channel);
-		if (toks.length > 2)
-			dName = dName + toks[2];
-		return dName;
 	}
 }

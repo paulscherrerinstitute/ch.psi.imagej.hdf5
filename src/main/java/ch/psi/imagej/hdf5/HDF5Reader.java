@@ -51,10 +51,7 @@ public class HDF5Reader implements PlugIn {
 	
 	
 	public void run(String arg) {
-		// make sure default values for config are written
-		// HDF5_Config.setDefaultsIfNoValueExists();
 
-		// Run plugin
 		String directory = "";
 		String name = "";
 		boolean tryAgain;
@@ -195,7 +192,7 @@ public class HDF5Reader implements PlugIn {
 						for (int lev = 0; lev < dimensions[1]; ++lev) {
 							int startIdx = (int) ((volIDX * singleVolumeSize) + (lev * stackSize));
 							int endIdx = (int) (startIdx + stackSize);
-							convertDatatypesAndSlice(datatypeIfUnsupported, stack, wholeDataset, startIdx, endIdx);
+							addSlice(datatypeIfUnsupported, stack, wholeDataset, startIdx, endIdx);
 						}
 					}
 
@@ -245,7 +242,7 @@ public class HDF5Reader implements PlugIn {
 					for (int lev = 0; lev < dimensions[0]; ++lev) {
 						int startIdx = lev * stackSize;
 						int endIdx = startIdx + stackSize;
-						convertDatatypesAndSlice(datatypeIfUnsupported, stack, wholeDataset, startIdx, endIdx);
+						addSlice(datatypeIfUnsupported, stack, wholeDataset, startIdx, endIdx);
 					}
 
 					ImagePlus imp = new ImagePlus(directory + name + " " + datasetName, stack);
@@ -259,38 +256,7 @@ public class HDF5Reader implements PlugIn {
 					wholeDataset = checkUnsigned(datatype, wholeDataset);
 
 					ImageStack stack = new ImageStack((int) dimensions[1], (int) dimensions[0]);
-					if (wholeDataset instanceof byte[]) {
-						byte[] tmp = (byte[]) wholeDataset;
-						stack.addSlice(null, tmp);
-					} else if (wholeDataset instanceof short[]) {
-						short[] tmp = (short[]) wholeDataset;
-						stack.addSlice(null, tmp);
-					} else if (wholeDataset instanceof int[]) {
-						int[] tmp = (int[]) wholeDataset;
-						if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
-							stack.addSlice(null, HDF5Utilities.convertToFloat(tmp));
-						}
-						if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
-							stack.addSlice(null, HDF5Utilities.convertToShort(tmp));
-						}
-					} else if (wholeDataset instanceof long[]) {
-						long[] tmp = (long[]) wholeDataset;
-						if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
-							stack.addSlice(null, HDF5Utilities.convertToFloat(tmp));
-						}
-						if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
-							stack.addSlice(null, HDF5Utilities.convertToShort(tmp));
-						}
-					} else if (wholeDataset instanceof float[]) {
-						float[] tmp = (float[]) wholeDataset;
-						stack.addSlice(null, tmp);
-					} else if (wholeDataset instanceof double[]) {
-						float[] tmp = HDF5Utilities.convertToFloat((double[]) wholeDataset);
-						stack.addSlice(null, tmp);
-					} else {
-						// try to put pixels on stack
-						stack.addSlice(null, wholeDataset);
-					}
+					addSlice(datatypeIfUnsupported, stack, wholeDataset);
 					
 					ImagePlus imp = new ImagePlus(directory + name + " " + datasetName, stack);
 					imp.resetDisplayRange();
@@ -460,13 +426,14 @@ public class HDF5Reader implements PlugIn {
 
 
 	/**
+	 * Add slice to image stack
 	 * @param datatypeIfUnsupported
 	 * @param stack
 	 * @param wholeDataset
 	 * @param startIdx
 	 * @param endIdx
 	 */
-	private void convertDatatypesAndSlice(Datatype datatypeIfUnsupported, ImageStack stack, Object wholeDataset, int startIdx, int endIdx) {
+	private void addSlice(Datatype datatypeIfUnsupported, ImageStack stack, Object wholeDataset, int startIdx, int endIdx) {
 		if (wholeDataset instanceof byte[]) {
 			byte[] tmp = Arrays.copyOfRange((byte[]) wholeDataset, startIdx, endIdx);
 			stack.addSlice(null, tmp);
@@ -496,9 +463,50 @@ public class HDF5Reader implements PlugIn {
 			float[] tmp = HDF5Utilities.convertToFloat(Arrays.copyOfRange((double[]) wholeDataset, startIdx, endIdx));
 			stack.addSlice(null, tmp);
 		} else {
-			logger.warning("Not supported array type");
+			logger.warning("Datatype not supported");
 		}
 	}
+	
+	/**
+	 * Add slice to image stack
+	 * @param datatypeIfUnsupported
+	 * @param stack
+	 * @param wholeDataset
+	 */
+	private void addSlice(Datatype datatypeIfUnsupported, ImageStack stack, Object wholeDataset){
+		if (wholeDataset instanceof byte[]) {
+			byte[] tmp = (byte[]) wholeDataset;
+			stack.addSlice(null, tmp);
+		} else if (wholeDataset instanceof short[]) {
+			short[] tmp = (short[]) wholeDataset;
+			stack.addSlice(null, tmp);
+		} else if (wholeDataset instanceof int[]) {
+			int[] tmp = (int[]) wholeDataset;
+			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
+				stack.addSlice(null, HDF5Utilities.convertToFloat(tmp));
+			}
+			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
+				stack.addSlice(null, HDF5Utilities.convertToShort(tmp));
+			}
+		} else if (wholeDataset instanceof long[]) {
+			long[] tmp = (long[]) wholeDataset;
+			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
+				stack.addSlice(null, HDF5Utilities.convertToFloat(tmp));
+			}
+			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
+				stack.addSlice(null, HDF5Utilities.convertToShort(tmp));
+			}
+		} else if (wholeDataset instanceof float[]) {
+			float[] tmp = (float[]) wholeDataset;
+			stack.addSlice(null, tmp);
+		} else if (wholeDataset instanceof double[]) {
+			float[] tmp = HDF5Utilities.convertToFloat((double[]) wholeDataset);
+			stack.addSlice(null, tmp);
+		} else {
+			logger.warning("Datatype not supported");
+		}
+	}
+	
 
 	/**
 	 * @param datatypeIfUnsupported
@@ -891,7 +899,9 @@ public class HDF5Reader implements PlugIn {
 	
 
 
-	/** Adds AWT scroll bars to the given container. */
+	/**
+	 * Add AWT scroll bars to the given container.
+	 */
 	public static void addScrollBars(Container pane) {
 		GridBagLayout layout = (GridBagLayout) pane.getLayout();
 
@@ -917,10 +927,6 @@ public class HDF5Reader implements PlugIn {
 			newPane.add(c[i]);
 		}
 
-		// HACK - get preferred size for container panel
-		// NB: don't know a better way:
-		// - newPane.getPreferredSize() doesn't work
-		// - newLayout.preferredLayoutSize(newPane) doesn't work
 		Frame f = new Frame();
 		f.setLayout(new BorderLayout());
 		f.add(newPane, BorderLayout.WEST);
@@ -935,10 +941,12 @@ public class HDF5Reader implements PlugIn {
 		Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
 		int maxWidth = 3 * screen.width / 4;
 		int maxHeight = 3 * screen.height / 4;
-		if (size.width > maxWidth)
+		if (size.width > maxWidth){
 			size.width = maxWidth;
-		if (size.height > maxHeight)
+		}
+		if (size.height > maxHeight){
 			size.height = maxHeight;
+		}
 
 		// create scroll pane
 		ScrollPane scroll = new ScrollPane() {
