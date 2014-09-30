@@ -127,13 +127,13 @@ public class HDF5Reader implements PlugIn {
 					wholeDataset = checkUnsigned(datatype, wholeDataset);
 
 					ImageStack stack = new ImageStack((int) dimensions[3], (int) dimensions[2]);
-					long stackSize = dimensions[2] * dimensions[3];
-					long singleVolumeSize = dimensions[1] * stackSize;
+					int stackSize = (int) (dimensions[2] * dimensions[3]);
+					int singleVolumeSize = (int) (dimensions[1] * stackSize);
 					for (int volIDX = 0; volIDX < dimensions[0]; ++volIDX) {
 						for (int lev = 0; lev < dimensions[1]; ++lev) {
-							int startIdx = (int) ((volIDX * singleVolumeSize * 3) + (lev * stackSize * 3));
-							int endIdx = (int) (startIdx + stackSize * 3 - 1);
-							copyPixels3(datatypeIfUnsupported, (int) dimensions[2], (int) dimensions[3], stack, wholeDataset, (int) stackSize, startIdx, endIdx);
+							int startIdx = (volIDX * singleVolumeSize * 3) + (lev * stackSize * 3);
+							int endIdx = startIdx + stackSize * 3 - 1;
+							copyPixels4D_RGB(datatypeIfUnsupported, (int) dimensions[2], (int) dimensions[3], stack, wholeDataset, (int) stackSize, startIdx, endIdx);
 						}
 					}
 
@@ -164,7 +164,7 @@ public class HDF5Reader implements PlugIn {
 						int startIdx = (int) (lev * stackSize);
 						int endIdx = (int) (startIdx + stackSize - 1);
 						int size = (int) (dimensions[2] * dimensions[1]);
-						copyPixels1((int) dimensions[1], (int) dimensions[2], stack, wholeDataset, size, startIdx, endIdx);
+						copyPixels3D_RGB((int) dimensions[1], (int) dimensions[2], stack, wholeDataset, size, startIdx, endIdx);
 					}
 
 					ImagePlus imp = new ImagePlus(directory + name + " " + datasetName, stack);
@@ -219,7 +219,7 @@ public class HDF5Reader implements PlugIn {
 					wholeDataset = checkUnsigned(datatype, wholeDataset);
 
 					ImageStack stack = new ImageStack((int) dimensions[1], (int) dimensions[0]);
-					copyPixels2((int) dimensions[0], (int) dimensions[1], stack, wholeDataset, (int) (dimensions[1] * dimensions[0]));
+					copyPixels2D_RGB((int) dimensions[0], (int) dimensions[1], stack, wholeDataset, (int) (dimensions[1] * dimensions[0]));
 
 					ImagePlus imp = new ImagePlus(directory + name + " " + datasetName, stack);
 					imp.setDimensions(3, 1, 1);
@@ -241,10 +241,10 @@ public class HDF5Reader implements PlugIn {
 					wholeDataset = checkUnsigned(datatype, wholeDataset);
 
 					ImageStack stack = new ImageStack((int) dimensions[2], (int) dimensions[1]);
-					long stackSize = dimensions[1] * dimensions[2];
+					int stackSize = (int) (dimensions[1] * dimensions[2]);
 					for (int lev = 0; lev < dimensions[0]; ++lev) {
-						int startIdx = (int) (lev * stackSize);
-						int endIdx = (int) (startIdx + stackSize);
+						int startIdx = lev * stackSize;
+						int endIdx = startIdx + stackSize;
 						convertDatatypesAndSlice(datatypeIfUnsupported, stack, wholeDataset, startIdx, endIdx);
 					}
 
@@ -268,24 +268,24 @@ public class HDF5Reader implements PlugIn {
 					} else if (wholeDataset instanceof int[]) {
 						int[] tmp = (int[]) wholeDataset;
 						if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
-							stack.addSlice(null, convertInt32ToFloat(tmp));
+							stack.addSlice(null, HDF5Utilities.convertToFloat(tmp));
 						}
 						if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
-							stack.addSlice(null, convertInt32ToShort(tmp));
+							stack.addSlice(null, HDF5Utilities.convertToShort(tmp));
 						}
 					} else if (wholeDataset instanceof long[]) {
 						long[] tmp = (long[]) wholeDataset;
 						if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
-							stack.addSlice(null, convertInt64ToFloat(tmp));
+							stack.addSlice(null, HDF5Utilities.convertToFloat(tmp));
 						}
 						if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
-							stack.addSlice(null, convertInt64ToShort(tmp));
+							stack.addSlice(null, HDF5Utilities.convertToShort(tmp));
 						}
 					} else if (wholeDataset instanceof float[]) {
 						float[] tmp = (float[]) wholeDataset;
 						stack.addSlice(null, tmp);
 					} else if (wholeDataset instanceof double[]) {
-						float[] tmp = convertDoubleToFloat((double[]) wholeDataset);
+						float[] tmp = HDF5Utilities.convertToFloat((double[]) wholeDataset);
 						stack.addSlice(null, tmp);
 					} else {
 						// try to put pixels on stack
@@ -329,20 +329,22 @@ public class HDF5Reader implements PlugIn {
 	 */
 	private Object checkUnsigned(Datatype datatype, Object wholeDataset) {
 		// check for unsigned datatype
-		int unsignedConvSelec = 0;
-		boolean isSigned16Bit = !datatype.isUnsigned() && (datatype.getDatatypeClass() == Datatype.CLASS_INTEGER) && (datatype.getDatatypeSize() == 2);
-		if (isSigned16Bit) {
-			GenericDialog convDiag = new GenericDialog("Unsigend to signed conversion");
-			convDiag.addMessage("Detected unsigned datatype, which " + "is not supported.");
-			String[] convOptions = new String[2];
-			convOptions[0] = "cut off values";
-			convOptions[1] = "convert to float";
-			convDiag.addChoice("Please select an conversion option:", convOptions, convOptions[0]);
-			convDiag.showDialog();
-			if (convDiag.wasCanceled())
-				return wholeDataset;
-			unsignedConvSelec = convDiag.getNextChoiceIndex();
-			wholeDataset = convertToUnsigned(wholeDataset, unsignedConvSelec);
+		if (!datatype.isUnsigned() && (datatype.getDatatypeClass() == Datatype.CLASS_INTEGER) && (datatype.getDatatypeSize() == 2)) {
+			GenericDialog dialog = new GenericDialog("Unsigned to signed conversion");
+			dialog.addMessage("Detected unsigned datatype, which is not supported.");
+			String[] convOptions = {"cut off values", "convert to float"};
+			dialog.addChoice("Please select an conversion option:", convOptions, convOptions[0]);
+			dialog.showDialog();
+			if (!dialog.wasCanceled()){
+				int unsignedConvSelec = dialog.getNextChoiceIndex();
+				if (wholeDataset instanceof short[]) {
+					if (unsignedConvSelec == 0) {
+						wholeDataset = HDF5Utilities.cutoffNegative((short[]) wholeDataset);
+					} else if (unsignedConvSelec == 1) {
+						wholeDataset = HDF5Utilities.convertToFloat((short[]) wholeDataset);
+					}
+				}
+			}
 		}
 		return wholeDataset;
 	}
@@ -355,30 +357,25 @@ public class HDF5Reader implements PlugIn {
 	 */
 	private Datatype checkIfDatatypeSupported(Datatype datatype) {
 		Datatype datatypeIfUnsupported = null;
-		// check if we have an unsupported datatype
 		if (datatype.getDatatypeClass() == Datatype.CLASS_INTEGER && (datatype.getDatatypeSize() == 4 || datatype.getDatatypeSize() == 8)) {
 			logger.info("Datatype not supported by ImageJ");
 			GenericDialog typeSelDiag = new GenericDialog("Datatype Selection");
 			typeSelDiag.addMessage("The datatype `" + datatype.getDatatypeDescription() + "` is not supported by ImageJ.\n\n");
-			typeSelDiag.addMessage("Please select your wanted datatype.\n");
+			typeSelDiag.addMessage("Please select datatype to convert to.\n");
 			String[] choices = new String[2];
 			choices[0] = "float";
 			choices[1] = "short";
 			typeSelDiag.addChoice("      Possible types are", choices, "float");
 			typeSelDiag.showDialog();
 
-			if (typeSelDiag.wasCanceled()) {
-				return null;
-			}
-			int selection = typeSelDiag.getNextChoiceIndex();
-			if (selection == 0) {
-				logger.info("float selected");
-				datatypeIfUnsupported = new H5Datatype(Datatype.CLASS_FLOAT, Datatype.NATIVE, Datatype.NATIVE, -1);
-			}
-			if (selection == 1) {
-				logger.info("short selected");
-				int typeSizeInByte = 2;
-				datatypeIfUnsupported = new H5Datatype(Datatype.CLASS_INTEGER, typeSizeInByte, Datatype.NATIVE, -1);
+			if (!typeSelDiag.wasCanceled()) {
+				int selection = typeSelDiag.getNextChoiceIndex();
+				if (selection == 0) {
+					datatypeIfUnsupported = new H5Datatype(Datatype.CLASS_FLOAT, Datatype.NATIVE, Datatype.NATIVE, -1);
+				}
+				if (selection == 1) {
+					datatypeIfUnsupported = new H5Datatype(Datatype.CLASS_INTEGER, 2, Datatype.NATIVE, -1);
+				}
 			}
 		}
 		return datatypeIfUnsupported;
@@ -479,24 +476,24 @@ public class HDF5Reader implements PlugIn {
 		} else if (wholeDataset instanceof int[]) {
 			int[] tmp = Arrays.copyOfRange((int[]) wholeDataset, startIdx, endIdx);
 			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
-				stack.addSlice(null, convertInt32ToFloat(tmp));
+				stack.addSlice(null, HDF5Utilities.convertToFloat(tmp));
 			}
 			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
-				stack.addSlice(null, convertInt32ToShort(tmp));
+				stack.addSlice(null, HDF5Utilities.convertToShort(tmp));
 			}
 		} else if (wholeDataset instanceof long[]) {
 			long[] tmp = Arrays.copyOfRange((long[]) wholeDataset, startIdx, endIdx);
 			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
-				stack.addSlice(null, convertInt64ToFloat(tmp));
+				stack.addSlice(null, HDF5Utilities.convertToFloat(tmp));
 			}
 			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
-				stack.addSlice(null, convertInt64ToShort(tmp));
+				stack.addSlice(null, HDF5Utilities.convertToShort(tmp));
 			}
 		} else if (wholeDataset instanceof float[]) {
 			float[] tmp = Arrays.copyOfRange((float[]) wholeDataset, startIdx, endIdx);
 			stack.addSlice(null, tmp);
 		} else if (wholeDataset instanceof double[]) {
-			float[] tmp = convertDoubleToFloat(Arrays.copyOfRange((double[]) wholeDataset, startIdx, endIdx));
+			float[] tmp = HDF5Utilities.convertToFloat(Arrays.copyOfRange((double[]) wholeDataset, startIdx, endIdx));
 			stack.addSlice(null, tmp);
 		} else {
 			logger.warning("Not supported array type");
@@ -514,7 +511,7 @@ public class HDF5Reader implements PlugIn {
 	 * @param startIdx
 	 * @param endIdx
 	 */
-	private void copyPixels3(Datatype datatypeIfUnsupported, int nRows, int nColumns, ImageStack stack, Object wholeDataset, int size, int startIdx, int endIdx) {
+	private void copyPixels4D_RGB(Datatype datatypeIfUnsupported, int nRows, int nColumns, ImageStack stack, Object wholeDataset, int size, int startIdx, int endIdx) {
 		if (wholeDataset instanceof byte[]) {
 			byte[] tmp = Arrays.copyOfRange((byte[]) wholeDataset, startIdx, endIdx);
 			byte[] rChannel = new byte[size];
@@ -551,7 +548,7 @@ public class HDF5Reader implements PlugIn {
 			stack.addSlice(null, bChannel);
 		} else if (wholeDataset instanceof int[]) {
 			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
-				float[] tmp = convertInt32ToFloat(Arrays.copyOfRange((int[]) wholeDataset, startIdx, endIdx));
+				float[] tmp = HDF5Utilities.convertToFloat(Arrays.copyOfRange((int[]) wholeDataset, startIdx, endIdx));
 				float[] rChannel = new float[size];
 				float[] gChannel = new float[size];
 				float[] bChannel = new float[size];
@@ -569,7 +566,7 @@ public class HDF5Reader implements PlugIn {
 				stack.addSlice(null, bChannel);
 			}
 			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
-				short[] tmp = convertInt32ToShort(Arrays.copyOfRange((int[]) wholeDataset, startIdx, endIdx));
+				short[] tmp = HDF5Utilities.convertToShort(Arrays.copyOfRange((int[]) wholeDataset, startIdx, endIdx));
 				short[] rChannel = new short[size];
 				short[] gChannel = new short[size];
 				short[] bChannel = new short[size];
@@ -588,7 +585,7 @@ public class HDF5Reader implements PlugIn {
 			}
 		} else if (wholeDataset instanceof long[]) {
 			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
-				float[] tmp = convertInt64ToFloat(Arrays.copyOfRange((long[]) wholeDataset, startIdx, endIdx));
+				float[] tmp = HDF5Utilities.convertToFloat(Arrays.copyOfRange((long[]) wholeDataset, startIdx, endIdx));
 				float[] rChannel = new float[size];
 				float[] gChannel = new float[size];
 				float[] bChannel = new float[size];
@@ -606,7 +603,7 @@ public class HDF5Reader implements PlugIn {
 				stack.addSlice(null, bChannel);
 			}
 			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
-				short[] tmp = convertInt64ToShort(Arrays.copyOfRange((long[]) wholeDataset, startIdx, endIdx));
+				short[] tmp = HDF5Utilities.convertToShort(Arrays.copyOfRange((long[]) wholeDataset, startIdx, endIdx));
 				short[] rChannel = new short[size];
 				short[] gChannel = new short[size];
 				short[] bChannel = new short[size];
@@ -641,7 +638,7 @@ public class HDF5Reader implements PlugIn {
 			stack.addSlice(null, gChannel);
 			stack.addSlice(null, bChannel);
 		} else if (wholeDataset instanceof double[]) {
-			float[] tmp = convertDoubleToFloat(Arrays.copyOfRange((double[]) wholeDataset, startIdx, endIdx));
+			float[] tmp = HDF5Utilities.convertToFloat(Arrays.copyOfRange((double[]) wholeDataset, startIdx, endIdx));
 			float[] rChannel = new float[size];
 			float[] gChannel = new float[size];
 			float[] bChannel = new float[size];
@@ -670,7 +667,7 @@ public class HDF5Reader implements PlugIn {
 	 * @param wholeDataset
 	 * @param size
 	 */
-	private void copyPixels2(int nRows, int nColumns, ImageStack stack, Object wholeDataset, int size) {
+	private void copyPixels2D_RGB(int nRows, int nColumns, ImageStack stack, Object wholeDataset, int size) {
 		if (wholeDataset instanceof byte[]) {
 			byte[] tmp = (byte[]) wholeDataset;
 			byte[] rChannel = new byte[size];
@@ -776,7 +773,6 @@ public class HDF5Reader implements PlugIn {
 		}
 	}
 
-
 	/**
 	 * @param nRows
 	 * @param nColumns
@@ -786,7 +782,7 @@ public class HDF5Reader implements PlugIn {
 	 * @param endIdx
 	 * @param size
 	 */
-	private void copyPixels1(int nRows, int nColumns, ImageStack stack, Object wholeDataset, int size, int startIdx, int endIdx) {
+	private void copyPixels3D_RGB(int nRows, int nColumns, ImageStack stack, Object wholeDataset, int size, int startIdx, int endIdx) {
 		if (wholeDataset instanceof byte[]) {
 			byte[] tmp = Arrays.copyOfRange((byte[]) wholeDataset, startIdx, endIdx);
 			byte[] rChannel = new byte[size];
@@ -892,71 +888,8 @@ public class HDF5Reader implements PlugIn {
 		}
 	}
 
-	private float[] convertDoubleToFloat(double[] dataIn) {
-		float[] dataOut = new float[dataIn.length];
-		for (int index = 0; index < dataIn.length; index++) {
-			dataOut[index] = (float) dataIn[index];
-		}
-		return dataOut;
-	}
 	
-	
-	private float[] convertInt32ToFloat(int[] array) {
-		float[] narray = new float[array.length];
-		for (int index = 0; index < array.length; index++) {
-			narray[index] = array[index];
-		}
-		return narray;
-	}
-	
-	private short[] convertInt32ToShort(int[] array) {
-		short[] narray = new short[array.length];
-		for (int index = 0; index < array.length; index++) {
-			narray[index] = (short) array[index];
-		}
-		return narray;
-	}
-	
-	private float[] convertInt64ToFloat(long[] array) {
-		float[] narray = new float[array.length];
-		for (int index = 0; index < array.length; index++) {
-			narray[index] = array[index];
-		}
-		return narray;
-	}
 
-	private short[] convertInt64ToShort(long[] array) {
-		short[] narray = new short[array.length];
-		for (int index = 0; index < array.length; index++) {
-			narray[index] = (short) array[index];
-		}
-		return narray;
-	}
-
-	private Object convertToUnsigned(Object dataIn, int unsignedConvSelec) {
-		Object dataOut = null;
-		if (unsignedConvSelec == 0) {
-			// cut off values
-			if (dataIn instanceof short[]) {
-				short[] tmp = (short[]) dataIn;
-				for (int i = 0; i < tmp.length; i++)
-					if (tmp[i] < 0)
-						tmp[i] = 0;
-				dataOut = tmp;
-			}
-		} else if (unsignedConvSelec == 1) {
-			// convert to float
-			if (dataIn instanceof short[]) {
-				logger.info("Converting to float");
-				short[] tmpIn = (short[]) dataIn;
-				float[] tmp = new float[tmpIn.length];
-				for (int i = 0; i < tmp.length; i++)
-					tmp[i] = (float) tmpIn[i];
-				dataOut = tmp;
-			}
-		}
-		return dataOut;
-	}
 
 	/** Adds AWT scroll bars to the given container. */
 	public static void addScrollBars(Container pane) {

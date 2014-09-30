@@ -222,4 +222,98 @@ public class HDF5Utilities {
 		}
 		return datasets;
 	}
+	
+	/**
+	 * Cut of negative values from array. This function will modify the passed array!
+	 * @param array	Array with values to cut off
+	 * @return	array holding cut off values
+	 */
+	public static short[] cutoffNegative(short[] array) {
+		for (int i = 0; i < array.length; i++) {
+			if (array[i] < 0) {
+				array[i] = 0;
+			}
+		}
+		return array;
+	}
+	
+	/**
+	 * Convert short to float array
+	 * @param array 	short array to convert
+	 * @return	Converted float array
+	 */
+	public static float[] convertToFloat(short[] array) {
+		float[] narray = new float[array.length];
+		for (int i = 0; i < array.length; i++) {
+			narray[i] = (float) array[i];
+		}
+		return narray;
+	}
+	
+	/**
+	 * Convert double to float array
+	 * @param array 	double array to convert
+	 * @return	Converted float array
+	 */
+	public static float[] convertToFloat(double[] array) {
+		float[] narray = new float[array.length];
+		for (int index = 0; index < array.length; index++) {
+			narray[index] = (float) array[index];
+		}
+		return narray;
+	}
+	
+	
+	/**
+	 * Convert int to float array
+	 * @param array 	int array to convert
+	 * @return	Converted short array
+	 */
+	public static float[] convertToFloat(int[] array) {
+		float[] narray = new float[array.length];
+		for (int index = 0; index < array.length; index++) {
+			narray[index] = array[index];
+		}
+		return narray;
+	}
+	
+	
+	/**
+	 * Convert int to short array
+	 * @param array 	int array to convert
+	 * @return	Converted short array
+	 */
+	public static short[] convertToShort(int[] array) {
+		short[] narray = new short[array.length];
+		for (int index = 0; index < array.length; index++) {
+			narray[index] = (short) array[index];
+		}
+		return narray;
+	}
+	
+	/**
+	 * Convert long (or int64) to float
+	 * @param array 	long array to convert
+	 * @return	Converted short array
+	 */
+	public static float[] convertToFloat(long[] array) {
+		float[] narray = new float[array.length];
+		for (int index = 0; index < array.length; index++) {
+			narray[index] = array[index];
+		}
+		return narray;
+	}
+
+	/**
+	 * Convert long (or int64) to short
+	 * @param array 	long array to convert
+	 * @return	Converted short array
+	 */
+	public static short[] convertToShort(long[] array) {
+		short[] narray = new short[array.length];
+		for (int index = 0; index < array.length; index++) {
+			narray[index] = (short) array[index];
+		}
+		return narray;
+	}
 }
