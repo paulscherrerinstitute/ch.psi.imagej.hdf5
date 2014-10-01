@@ -21,7 +21,7 @@ File > SaveAs > HDF5
 # Installation
 To be able to install this plugin ImageJ need to be run with a Java 7 or greater JVM.
 
-* Download latest HDF5 ImageJ plugin from [here](http://slsyoke4.psi.ch:8081/artifactory/releases/HDF5_Viewer-0.6.0.zip).
+* Download latest HDF5 ImageJ plugin from [releases](https://github.com/paulscherrerinstitute/ch.psi.imagej.hdf5/releases).
 
 * Go into the ImageJ installation folder and extract the downloaded zip.
 
