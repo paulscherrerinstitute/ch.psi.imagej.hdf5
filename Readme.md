@@ -2,8 +2,7 @@
 
 ImageJ plugin for reading and writing HDF5 files.
 
-This project originated from and is inspired by: ImageJ HDF Plugin of Matthias Schlachter Chair of Pattern Recognition and Image Processing, University of Freiburg, Germany.
-https://code.google.com/p/imagej-hdf/
+
 
 # Usage
 
@@ -22,7 +21,7 @@ File > SaveAs > HDF5
 # Installation
 To be able to install this plugin ImageJ need to be run with a Java 7 or greater JVM.
 
-* Download latest HDF5 ImageJ plugin from [here](http://slsyoke4.psi.ch:8081/artifactory/releases/HDF5_Viewer-0.3.0.zip).
+* Download latest HDF5 ImageJ plugin from [here](http://slsyoke4.psi.ch:8081/artifactory/releases/HDF5_Viewer-0.6.0.zip).
 
 * Go into the ImageJ installation folder and extract the downloaded zip.
 
@@ -82,3 +81,7 @@ To create an all in one zip file for installation in a ImageJ installation use:
 `mvn clean compile assembly:assembly`
 
 The zip file contains an all in one jar as well as the required native libraries for Windows, Linux and Mac OS X.
+
+# Acknowledgements
+This project was inspired by the ImageJ HDF Plugin of Matthias Schlachter Chair of Pattern Recognition and Image Processing, University of Freiburg, Germany ( https://code.google.com/p/imagej-hdf ) . 
+It is a complete rewrite of the code with the focus on efficiency and maintainability
