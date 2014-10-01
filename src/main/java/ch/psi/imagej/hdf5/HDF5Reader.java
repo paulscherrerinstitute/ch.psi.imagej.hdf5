@@ -18,6 +18,7 @@ import java.awt.*;
 
 import javax.swing.BoxLayout;
 import javax.swing.DefaultListCellRenderer;
+import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
@@ -66,9 +67,9 @@ public class HDF5Reader implements PlugIn {
 			file.open();
 
 			List<Dataset> datasets = HDF5Utilities.getDatasets(file);
-			List<Dataset> selectedDatasets = selectDatasets(datasets);
+			SelectedDatasets selectedDatasets = selectDatasets(datasets);
 
-			for (Dataset var : selectedDatasets) {
+			for (Dataset var : selectedDatasets.getDatasets()) {
 
 				// Read dataset attributes and properties
 				String datasetName = var.getName();
@@ -254,18 +255,20 @@ public class HDF5Reader implements PlugIn {
 	 * @return	List of datasets to visualize. If nothing selected the list will be empty
 	 * @throws HDF5Exception
 	 */
-	private List<Dataset> selectDatasets(List<Dataset> datasets) throws HDF5Exception {
+	private SelectedDatasets selectDatasets(List<Dataset> datasets) throws HDF5Exception {
 		
-		List<Dataset> selectedDatasets = new ArrayList<>();
 		GenericDialog gd = new GenericDialog("Variable Name Selection");
 		gd.addMessage("Please select variables to be loaded.\n");
 		
-		if (datasets.size() < 1) {
-			IJ.error("The file does not contain datasets");
-		} else {
-		    
-			// TODO only display datasets >= 2D
-			JList<Dataset> list = new JList<>(datasets.toArray(new Dataset[datasets.size()]));
+			// Filter datasets that are not potential images / that cannot be displayed
+			List<Dataset> fdatasets = new ArrayList<Dataset>();
+			for(Dataset d: datasets){
+				if(d.getRank()>=2 && d.getRank()<=5){
+					fdatasets.add(d);
+				}
+			}
+			
+			JList<Dataset> list = new JList<>(fdatasets.toArray(new Dataset[fdatasets.size()]));
 			list.setCellRenderer(new DefaultListCellRenderer() {
 				private static final long serialVersionUID = 1L;
 				public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus)	{
@@ -283,14 +286,8 @@ public class HDF5Reader implements PlugIn {
 			JPanel panel = new JPanel();
 			panel.setLayout(new BoxLayout(panel,BoxLayout.Y_AXIS));
 			panel.add(scroll);
-//			JPanel lpanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-//			lpanel.add(new JLabel("Too much entries - Please enter the full path of the dataset to be displayed"));
-//			panel.add(lpanel);
-//			JPanel tpanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-//			tpanel.add(new JLabel("Dataset: "));
-//			JTextField tfield = new JTextField("",60);
-//			tpanel.add(tfield);
-//			panel.add(tpanel);
+			JCheckBox checkbox = new JCheckBox("Group Datasets");
+			panel.add(checkbox);
 			
 			gd = new GenericDialog("Variable Name Selection");
 			gd.add(panel);
@@ -298,10 +295,11 @@ public class HDF5Reader implements PlugIn {
 			gd.pack();
 			gd.showDialog();
 
+			SelectedDatasets selectedDatasets = new SelectedDatasets();
 			if (!gd.wasCanceled()) {
-				selectedDatasets = list.getSelectedValuesList();
+				selectedDatasets.setDatasets(list.getSelectedValuesList());
+				selectedDatasets.setGroup(checkbox.isSelected());
 			}
-		}
 		
 		return selectedDatasets;
 	}
