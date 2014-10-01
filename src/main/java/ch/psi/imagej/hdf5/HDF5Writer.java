@@ -115,7 +115,7 @@ public class HDF5Writer implements PlugInFilter {
 						fullName = fullName.replaceAll("$F", f + "");
 						fullName = fullName.replaceAll("$C", c + "");
 
-						String dataSetName = HDF5Utilities.getDataSetDescriptor(fullName);
+						String dataSetName = HDF5Utilities.getDatasetName(fullName);
 						String groupName = HDF5Utilities.getGroupDescriptor(fullName);
 
 						// Ensure group exists
@@ -194,7 +194,7 @@ public class HDF5Writer implements PlugInFilter {
 				}
 				file.open();
 
-				String datasetName = HDF5Utilities.getDataSetDescriptor(varName);
+				String datasetName = HDF5Utilities.getDatasetName(varName);
 				String groupName = HDF5Utilities.getGroupDescriptor(varName);
 
 				// Ensure group exists

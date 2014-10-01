@@ -4,7 +4,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.swing.tree.DefaultMutableTreeNode;
 
@@ -25,9 +28,7 @@ public class HDF5Utilities {
 	 * @return			Map of attributes or null if an error occurred while retrieving the attributes or the passed object is null
 	 */
 	public static  Map<String,Attribute> getAttributes(HObject object) {
-		if (object == null){
-			return null;
-		}
+		Objects.requireNonNull(object);
 
 		Map<String, Attribute> attributes = new HashMap<>();
 		try{
@@ -47,61 +48,33 @@ public class HDF5Utilities {
 	
 	
 	/**
-	 * TODO: to be replaced by a simple regex expression
-	 * 
 	 * Retrieve relative group descriptor for given descriptor
 	 * 
-	 * Example:
-	 * The group descriptor of /test/one/two/three is test/one/two
+	 * Example: /test/one/two/three returns test/one/two
 	 * 
 	 * @param descriptor 	Full qualified descriptor
 	 * @return	Group descriptor
 	 */
 	public static String getGroupDescriptor(String descriptor) {
-		String groupName = descriptor;
-
-		// Trim leading and trailing slashes
-		while (groupName.charAt(0) == '/') {
-			groupName = groupName.substring(1);
-		}
-		while (groupName.charAt(groupName.length() - 1) == '/') {
-			groupName = groupName.substring(0, groupName.length() - 2);
-		}
-		
-		int posOfLastSlash = groupName.lastIndexOf('/');
-		if (posOfLastSlash == -1)
-			return null;
-		else
-			return groupName.substring(0, posOfLastSlash);
+		Pattern p = Pattern.compile("^/?(.*)/");
+		Matcher m = p.matcher(descriptor);
+		m.find();
+		return m.group(1);
 	}
 	
 	/**
-	 * TODO: to be replaced by a simple regex expression
+	 * Get dataset name
 	 * 
-	 * Get relative dataset descriptor
-	 * 
-	 * Example:
-	 * 
-	 * /a/b/c/d/ returns d
+	 * Example: /a/b/c/d/ returns d
 	 *  
 	 * @param descriptor
-	 * @return relative dataset descriptor
+	 * @return 	Dataset name
 	 */
-	public static String getDataSetDescriptor(String descriptor) {
-		String dataSetName = descriptor;
-		
-		// Trim leading and trailing slashes
-		while (dataSetName.charAt(0) == '/') {
-			dataSetName = dataSetName.substring(1);
-		}
-		while (dataSetName.charAt(dataSetName.length() - 1) == '/') {
-			dataSetName = dataSetName.substring(0, dataSetName.length() - 2);
-		}
-		int posOfLastSlash = dataSetName.lastIndexOf('/');
-		if (posOfLastSlash == -1)
-			return dataSetName;
-		else
-			return dataSetName.substring(posOfLastSlash + 1);
+	public static String getDatasetName(String descriptor) {
+		Pattern p = Pattern.compile("/+([^/]*)/?$");
+		Matcher m = p.matcher(descriptor);
+		m.find();
+		return m.group(1);
 	}
 	
 	/**
@@ -123,70 +96,31 @@ public class HDF5Utilities {
 	 * @return
 	 */
 	public static Group createGroup( FileFormat file, Group group, String groupName) {
-		if (groupName == null || file == null)
-			return null;
+		Objects.requireNonNull(file);
+		Objects.requireNonNull(groupName);
 
 		if (group == null){
 			group = (Group) ((DefaultMutableTreeNode) file.getRootNode()).getUserObject();
 		}
 
-		// Trim leading and trailing slashes
-		while (groupName.charAt(0) == '/') {
-			groupName = groupName.substring(1);
-		}
-		while (groupName.charAt(groupName.length() - 1) == '/') {
-			groupName = groupName.substring(0, groupName.length() - 2);
-		}
-
-		int posOfSlash = groupName.indexOf('/');
-
-		if (posOfSlash == -1) {
-			try {
-				Group newGroup;
-				String newGroupName;
-				if (group.isRoot()){
-					newGroupName = "/" + groupName;
-				}
-				else{
-					newGroupName = group.getFullName() + "/" + groupName;
-				}
-				newGroup = (Group) file.get(newGroupName);
-				if (newGroup == null){
-					newGroup = file.createGroup(newGroupName, group);
-				}
-				return newGroup;
-			} catch (Exception e) {
-				return null;
+		Group ngroup = group;
+		
+		try{
+		String[] groups = groupName.split("/");
+		for(String g: groups){
+			Group cgroup = (Group) file.get(ngroup.getFullName()+"/"+g); // check if already exist
+			if (cgroup == null){
+				ngroup = file.createGroup(g, ngroup);
 			}
-		} else {
-			String subgroupRelativName = groupName.substring(posOfSlash);
-			String currentGroup = groupName.substring(0, posOfSlash);
-			logger.info("Create: " + currentGroup);
-			logger.info("Call back for: " + subgroupRelativName);
-			try {
-				Group newGroup;
-				String newGroupName;
-				if (group.isRoot()){
-					newGroupName = "/" + currentGroup;
-				}
-				else {
-					newGroupName = group.getFullName() + "/" + currentGroup;
-				}
-
-				logger.info("try opening: " + newGroupName);
-				newGroup = (Group) file.get(newGroupName);
-
-				if (newGroup == null) {
-					newGroup = file.createGroup(newGroupName, group);
-				}
-
-				return createGroup(file, newGroup, subgroupRelativName );
-			} catch (Exception e) {
-				return null;
+			else{
+				ngroup = cgroup;
 			}
-
 		}
-		// never come here
+		return ngroup;
+		}
+		catch(Exception e){
+			throw new RuntimeException("Unable to create group ");
+		}
 	}
 	
 	
@@ -234,41 +168,14 @@ public class HDF5Utilities {
 	}
 	
 	/**
-	 * Cut of negative values from array. This function will modify the passed array!
-	 * @param array	Array with values to cut off
-	 * @return	array holding cut off values
-	 */
-	public static short[] cutoffNegative(short[] array) {
-		for (int i = 0; i < array.length; i++) {
-			if (array[i] < 0) {
-				array[i] = 0;
-			}
-		}
-		return array;
-	}
-	
-	/**
-	 * Convert short to float array
-	 * @param array 	short array to convert
-	 * @return	Converted float array
-	 */
-	public static float[] convertToFloat(short[] array) {
-		float[] narray = new float[array.length];
-		for (int i = 0; i < array.length; i++) {
-			narray[i] = (float) array[i];
-		}
-		return narray;
-	}
-	
-	/**
 	 * Convert double to float array
 	 * @param array 	double array to convert
 	 * @return	Converted float array
 	 */
 	public static float[] convertToFloat(double[] array) {
 		float[] narray = new float[array.length];
-		for (int index = 0; index < array.length; index++) {
-			narray[index] = (float) array[index];
+		for (int i = 0; i < array.length; i++) {
+			narray[i] = (float) array[i];
 		}
 		return narray;
 	}
@@ -281,25 +188,12 @@ public class HDF5Utilities {
 	 */
 	public static float[] convertToFloat(int[] array) {
 		float[] narray = new float[array.length];
-		for (int index = 0; index < array.length; index++) {
-			narray[index] = array[index];
+		for (int i = 0; i < array.length; i++) {
+			narray[i] = array[i];
 		}
 		return narray;
 	}
 	
-	
-	/**
-	 * Convert int to short array
-	 * @param array 	int array to convert
-	 * @return	Converted short array
-	 */
-	public static short[] convertToShort(int[] array) {
-		short[] narray = new short[array.length];
-		for (int index = 0; index < array.length; index++) {
-			narray[index] = (short) array[index];
-		}
-		return narray;
-	}
 	
 	/**
 	 * Convert long (or int64) to float
@@ -308,22 +202,10 @@ public class HDF5Utilities {
 	 */
 	public static float[] convertToFloat(long[] array) {
 		float[] narray = new float[array.length];
-		for (int index = 0; index < array.length; index++) {
-			narray[index] = array[index];
+		for (int i = 0; i < array.length; i++) {
+			narray[i] = array[i];
 		}
 		return narray;
 	}
 
-	/**
-	 * Convert long (or int64) to short
-	 * @param array 	long array to convert
-	 * @return	Converted short array
-	 */
-	public static short[] convertToShort(long[] array) {
-		short[] narray = new short[array.length];
-		for (int index = 0; index < array.length; index++) {
-			narray[index] = (short) array[index];
-		}
-		return narray;
-	}
 }

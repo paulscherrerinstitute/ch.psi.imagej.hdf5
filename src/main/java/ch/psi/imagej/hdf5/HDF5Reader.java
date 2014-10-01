@@ -11,7 +11,6 @@ import ij.plugin.PlugIn;
 import java.io.File;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -25,52 +24,40 @@ public class HDF5Reader implements PlugIn {
 	
 	private static final Logger logger = Logger.getLogger(HDF5Reader.class.getName());
 	
+	/**
+	 * Main function for testing
+	 * @param args
+	 */
 	public static void main(String[] args){
 		HDF5Reader r = new HDF5Reader();
 		r.run("");
 	}
 	
+	/**
+	 * Main function plugin
+	 */
 	public void run(String arg) {
 
-		String directory = "";
-		String name = "";
-		boolean tryAgain;
-		String openMSG = "Open HDF5...";
-		do {
-			tryAgain = false;
-			OpenDialog od;
-			if (directory.equals(""))
-				od = new OpenDialog(openMSG, arg);
-			else
-				od = new OpenDialog(openMSG, directory, arg);
+		OpenDialog od = new OpenDialog("Open HDF5 ...", arg);
 
-			directory = od.getDirectory();
-			name = od.getFileName();
-			if (name == null)
-				return;
-			if (name.equals(""))
-				return;
+		
+		File tfile = new File(od.getDirectory() + od.getFileName());
+		if (!tfile.exists() || !tfile.canRead()) {
+			IJ.showMessage("Cannot open file: "+tfile.getAbsolutePath());
+			return;
+		}
+		String filename = tfile.getAbsolutePath();
 
-			File testFile = new File(directory + name);
-			if (!testFile.exists() || !testFile.canRead())
-				return;
-
-			if (testFile.isDirectory()) {
-				directory = directory + name;
-				tryAgain = true;
-			}
-		} while (tryAgain);
-
-		IJ.showStatus("Loading HDF5 File: " + directory + name);
+		IJ.showStatus("Loading HDF5 File: " + filename);
 		IJ.showProgress(0.0);
 		
 		// Read HDF5 file
-		H5File inFile = null;
+		H5File file = null;
 		try {
-			inFile = new H5File(directory + name, H5File.READ);
-			inFile.open();
+			file = new H5File(filename, H5File.READ);
+			file.open();
 
-			List<Dataset> datasets = HDF5Utilities.getDatasets(inFile);
+			List<Dataset> datasets = HDF5Utilities.getDatasets(file);
 			List<Dataset> selectedDatasets = selectDatasets(datasets);
 
 			for (Dataset var : selectedDatasets) {
@@ -78,14 +65,11 @@ public class HDF5Reader implements PlugIn {
 				// Read dataset attributes and properties
 				String datasetName = var.getName();
 				Datatype datatype = var.getDatatype();
-				Datatype datatypeIfUnsupported = null;
 				int numberOfDimensions = var.getRank();
 				long[] dimensions= var.getDims();
 
 				logger.info("Reading dataset: " + datasetName + " Dimensions: " + numberOfDimensions + " Type: " + datatype.getDatatypeDescription());
 
-				// Check if datatype is supported
-				datatypeIfUnsupported = checkIfDatatypeSupported(datatype);
 
 				// Read dataset
 				if (numberOfDimensions == 5 && dimensions[4] == 3) {
@@ -101,7 +85,6 @@ public class HDF5Reader implements PlugIn {
 					selected[4] = dimensions[4];
 
 					Object wholeDataset = var.read();
-					wholeDataset = checkUnsigned(datatype, wholeDataset);
 
 					ImageStack stack = new ImageStack((int) dimensions[3], (int) dimensions[2]);
 					int stackSize = (int) (dimensions[2] * dimensions[3] * 3);
@@ -113,7 +96,7 @@ public class HDF5Reader implements PlugIn {
 						}
 					}
 
-					ImagePlus imp = new ImagePlus(directory + name + " " + datasetName, stack);
+					ImagePlus imp = new ImagePlus(filename + " " + datasetName, stack);
 					imp.setDimensions(3, (int) dimensions[1], (int) dimensions[0]);
 					imp = new CompositeImage(imp, CompositeImage.COMPOSITE);
 					imp.setOpenAsHyperStack(true);
@@ -132,7 +115,6 @@ public class HDF5Reader implements PlugIn {
 					selected[3] = dimensions[3];
 
 					Object wholeDataset = var.read();
-					wholeDataset = checkUnsigned(datatype, wholeDataset);
 
 					ImageStack stack = new ImageStack((int) dimensions[2], (int) dimensions[1]);
 					int stackSize = (int) (dimensions[1] * dimensions[2] * 3);
@@ -141,7 +123,7 @@ public class HDF5Reader implements PlugIn {
 						addSliceRGB( stack, wholeDataset, (int) dimensions[1], (int) dimensions[2], startIdx);
 					}
 
-					ImagePlus imp = new ImagePlus(directory + name + " " + datasetName, stack);
+					ImagePlus imp = new ImagePlus(filename + " " + datasetName, stack);
 					imp.setDimensions(3, (int) dimensions[0], 1);
 					imp = new CompositeImage(imp, CompositeImage.COMPOSITE);
 					imp.setOpenAsHyperStack(true);
@@ -160,20 +142,18 @@ public class HDF5Reader implements PlugIn {
 					selected[3] = dimensions[3];
 
 					Object wholeDataset = var.read();
-					wholeDataset = checkUnsigned(datatype, wholeDataset);
 
 					ImageStack stack = new ImageStack((int) dimensions[3], (int) dimensions[2]);
-					long stackSize = dimensions[2] * dimensions[3];
-					long singleVolumeSize = dimensions[1] * stackSize;
+					int size = (int) (dimensions[2] * dimensions[3]);
+					long singleVolumeSize = dimensions[1] * size;
 					for (int volIDX = 0; volIDX < dimensions[0]; ++volIDX) {
 						for (int lev = 0; lev < dimensions[1]; ++lev) {
-							int startIdx = (int) ((volIDX * singleVolumeSize) + (lev * stackSize));
-							int endIdx = (int) (startIdx + stackSize);
-							addSlice(datatypeIfUnsupported, stack, wholeDataset, startIdx, endIdx);
+							int startIdx = (int) ((volIDX * singleVolumeSize) + (lev * size));
+							addSlice(stack, wholeDataset, startIdx, size);
 						}
 					}
 
-					ImagePlus imp = new ImagePlus(directory + name + " " + datasetName, stack);
+					ImagePlus imp = new ImagePlus(filename + " " + datasetName, stack);
 					imp.setDimensions(1, (int) dimensions[1], (int) dimensions[0]);
 					imp.setOpenAsHyperStack(true);
 					imp.resetDisplayRange();
@@ -190,12 +170,11 @@ public class HDF5Reader implements PlugIn {
 					selected[2] = dimensions[2];
 
 					Object wholeDataset = var.read();
-					wholeDataset = checkUnsigned(datatype, wholeDataset);
 
 					ImageStack stack = new ImageStack((int) dimensions[1], (int) dimensions[0]);
 					addSliceRGB(stack, wholeDataset, (int) dimensions[0], (int) dimensions[1]);
 
-					ImagePlus imp = new ImagePlus(directory + name + " " + datasetName, stack);
+					ImagePlus imp = new ImagePlus(filename + " " + datasetName, stack);
 					imp.setDimensions(3, 1, 1);
 					imp = new CompositeImage(imp, CompositeImage.COMPOSITE);
 					imp.setOpenAsHyperStack(true);
@@ -212,17 +191,15 @@ public class HDF5Reader implements PlugIn {
 					selected[2] = dimensions[2];
 
 					Object wholeDataset = var.read();
-					wholeDataset = checkUnsigned(datatype, wholeDataset);
 
 					ImageStack stack = new ImageStack((int) dimensions[2], (int) dimensions[1]);
-					int stackSize = (int) (dimensions[1] * dimensions[2]);
+					int size = (int) (dimensions[1] * dimensions[2]);
 					for (int lev = 0; lev < dimensions[0]; ++lev) {
-						int startIdx = lev * stackSize;
-						int endIdx = startIdx + stackSize;
-						addSlice(datatypeIfUnsupported, stack, wholeDataset, startIdx, endIdx);
+						int startIdx = lev * size;
+						addSlice(stack, wholeDataset, startIdx, size);
 					}
 
-					ImagePlus imp = new ImagePlus(directory + name + " " + datasetName, stack);
+					ImagePlus imp = new ImagePlus(filename + " " + datasetName, stack);
 					imp.resetDisplayRange();
 					imp.show();
 					
@@ -230,100 +207,37 @@ public class HDF5Reader implements PlugIn {
 					logger.info("2D Image");
 					
 					Object wholeDataset = var.read();
-					wholeDataset = checkUnsigned(datatype, wholeDataset);
 
 					ImageStack stack = new ImageStack((int) dimensions[1], (int) dimensions[0]);
-					addSlice(datatypeIfUnsupported, stack, wholeDataset);
+					addSlice(stack, wholeDataset);
 					
-					ImagePlus imp = new ImagePlus(directory + name + " " + datasetName, stack);
+					ImagePlus imp = new ImagePlus(filename + " " + datasetName, stack);
 					imp.resetDisplayRange();
 					imp.show();
 					
 				} else {
-					System.err.println("   Error: Variable Dimensions " + numberOfDimensions + " not supported (yet).");
 					IJ.showStatus("Variable Dimension " + numberOfDimensions + " not supported");
 				}
 			}
 
 		} catch (Exception e) {
-			logger.log(Level.WARNING, "Error while opening '" + directory + name + "'", e);
-			IJ.showStatus("Error while opening file '" + directory + name + "'");
-		} catch (OutOfMemoryError o) {
-			IJ.outOfMemory("Out of memory while loading file '" + directory + name + "'");
+			logger.log(Level.WARNING, "Error while opening: " + filename, e);
+			IJ.showStatus("Error while opening file: " + filename);
+		} catch (OutOfMemoryError e) {
+			IJ.outOfMemory("Out of memory while loading file: " + filename);
 		} finally {
 			try {
-				if (inFile != null) {
-					inFile.close();
+				if (file != null) {
+					file.close();
 				}
-			} catch (HDF5Exception err) {
-				logger.log(Level.WARNING, "Error while closing '" + directory + name + "'", err);
-				IJ.showStatus("Error while closing '" + directory + name + "'");
+			} catch (HDF5Exception e) {
+				logger.log(Level.WARNING, "Error while closing: " + filename, e);
+				IJ.showStatus("Error while closing: " + filename);
 			}
 		}
 
 		IJ.showProgress(1.0);
 	}
-
-
-	/**
-	 * @param datatype
-	 * @param wholeDataset
-	 * @return
-	 */
-	private Object checkUnsigned(Datatype datatype, Object wholeDataset) {
-		// check for unsigned datatype
-		if (!datatype.isUnsigned() && (datatype.getDatatypeClass() == Datatype.CLASS_INTEGER) && (datatype.getDatatypeSize() == 2)) {
-			GenericDialog dialog = new GenericDialog("Unsigned to signed conversion");
-			dialog.addMessage("Detected unsigned datatype, which is not supported.");
-			String[] convOptions = {"cut off values", "convert to float"};
-			dialog.addChoice("Please select an conversion option:", convOptions, convOptions[0]);
-			dialog.showDialog();
-			if (!dialog.wasCanceled()){
-				int unsignedConvSelec = dialog.getNextChoiceIndex();
-				if (wholeDataset instanceof short[]) {
-					if (unsignedConvSelec == 0) {
-						wholeDataset = HDF5Utilities.cutoffNegative((short[]) wholeDataset);
-					} else if (unsignedConvSelec == 1) {
-						wholeDataset = HDF5Utilities.convertToFloat((short[]) wholeDataset);
-					}
-				}
-			}
-		}
-		return wholeDataset;
-	}
-
-
-	/**
-	 * Returns a datatype if native datatype is not supported. Returns null if datatype is supported.
-	 * @param datatype
-	 * @return
-	 */
-	private Datatype checkIfDatatypeSupported(Datatype datatype) {
-		Datatype datatypeIfUnsupported = null;
-		if (datatype.getDatatypeClass() == Datatype.CLASS_INTEGER && (datatype.getDatatypeSize() == 4 || datatype.getDatatypeSize() == 8)) {
-			logger.info("Datatype not supported by ImageJ");
-			GenericDialog typeSelDiag = new GenericDialog("Datatype Selection");
-			typeSelDiag.addMessage("The datatype `" + datatype.getDatatypeDescription() + "` is not supported by ImageJ.\n\n");
-			typeSelDiag.addMessage("Please select datatype to convert to.\n");
-			String[] choices = new String[2];
-			choices[0] = "float";
-			choices[1] = "short";
-			typeSelDiag.addChoice("      Possible types are", choices, "float");
-			typeSelDiag.showDialog();
-
-			if (!typeSelDiag.wasCanceled()) {
-				int selection = typeSelDiag.getNextChoiceIndex();
-				if (selection == 0) {
-					datatypeIfUnsupported = new H5Datatype(Datatype.CLASS_FLOAT, Datatype.NATIVE, Datatype.NATIVE, -1);
-				}
-				if (selection == 1) {
-					datatypeIfUnsupported = new H5Datatype(Datatype.CLASS_INTEGER, 2, Datatype.NATIVE, -1);
-				}
-			}
-		}
-		return datatypeIfUnsupported;
-	}
-
 
 	/**
 	 * Selection of the datasets to visualize
@@ -397,88 +311,42 @@ public class HDF5Reader implements PlugIn {
 			}
 		}
 		
-		
 		return selectedDatasets;
 	}
 
 
 	/**
 	 * Add slice to image stack
-	 * @param datatypeIfUnsupported
-	 * @param stack
-	 * @param wholeDataset
-	 * @param startIdx
-	 * @param endIdx
+	 * @param stack		Stack to add slice
+	 * @param dataset	Dataset to create slice from
+	 * @param startIdx	Index of dataset to start to create slice
+	 * @param size		Size of dataset to add
 	 */
-	private void addSlice(Datatype datatypeIfUnsupported, ImageStack stack, Object wholeDataset, int startIdx, int endIdx) {
-		if (wholeDataset instanceof byte[]) {
-			byte[] tmp = Arrays.copyOfRange((byte[]) wholeDataset, startIdx, endIdx);
-			stack.addSlice(null, tmp);
-		} else if (wholeDataset instanceof short[]) {
-			short[] tmp = Arrays.copyOfRange((short[]) wholeDataset, startIdx, endIdx);
-			stack.addSlice(null, tmp);
-		} else if (wholeDataset instanceof int[]) {
-			int[] tmp = Arrays.copyOfRange((int[]) wholeDataset, startIdx, endIdx);
-			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
-				stack.addSlice(null, HDF5Utilities.convertToFloat(tmp));
-			}
-			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
-				stack.addSlice(null, HDF5Utilities.convertToShort(tmp));
-			}
-		} else if (wholeDataset instanceof long[]) {
-			long[] tmp = Arrays.copyOfRange((long[]) wholeDataset, startIdx, endIdx);
-			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
-				stack.addSlice(null, HDF5Utilities.convertToFloat(tmp));
-			}
-			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
-				stack.addSlice(null, HDF5Utilities.convertToShort(tmp));
-			}
-		} else if (wholeDataset instanceof float[]) {
-			float[] tmp = Arrays.copyOfRange((float[]) wholeDataset, startIdx, endIdx);
-			stack.addSlice(null, tmp);
-		} else if (wholeDataset instanceof double[]) {
-			float[] tmp = HDF5Utilities.convertToFloat(Arrays.copyOfRange((double[]) wholeDataset, startIdx, endIdx));
-			stack.addSlice(null, tmp);
-		} else {
-			logger.warning("Datatype not supported");
-		}
+	private void addSlice(ImageStack stack, Object dataset, int startIdx, int size) {
+		Object copy = Array.newInstance(dataset.getClass().getComponentType(), size);
+		System.arraycopy(dataset, startIdx, copy, 0, size);
+		addSlice(stack, copy);
 	}
+	
 	
 	/**
 	 * Add slice to image stack
-	 * @param datatypeIfUnsupported
-	 * @param stack
-	 * @param wholeDataset
+	 * @param stack		Stack to add slice
+	 * @param dataset	Dataset to create slice from
 	 */
-	private void addSlice(Datatype datatypeIfUnsupported, ImageStack stack, Object wholeDataset){
-		if (wholeDataset instanceof byte[]) {
-			byte[] tmp = (byte[]) wholeDataset;
-			stack.addSlice(null, tmp);
-		} else if (wholeDataset instanceof short[]) {
-			short[] tmp = (short[]) wholeDataset;
-			stack.addSlice(null, tmp);
-		} else if (wholeDataset instanceof int[]) {
-			int[] tmp = (int[]) wholeDataset;
-			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
-				stack.addSlice(null, HDF5Utilities.convertToFloat(tmp));
-			}
-			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
-				stack.addSlice(null, HDF5Utilities.convertToShort(tmp));
-			}
-		} else if (wholeDataset instanceof long[]) {
-			long[] tmp = (long[]) wholeDataset;
-			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
-				stack.addSlice(null, HDF5Utilities.convertToFloat(tmp));
-			}
-			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
-				stack.addSlice(null, HDF5Utilities.convertToShort(tmp));
-			}
-		} else if (wholeDataset instanceof float[]) {
-			float[] tmp = (float[]) wholeDataset;
-			stack.addSlice(null, tmp);
-		} else if (wholeDataset instanceof double[]) {
-			float[] tmp = HDF5Utilities.convertToFloat((double[]) wholeDataset);
-			stack.addSlice(null, tmp);
+	private void addSlice(ImageStack stack, Object dataset){
+		if (dataset instanceof byte[]) {
+			stack.addSlice(null, (byte[]) dataset);
+		} else if (dataset instanceof short[]) {
+			stack.addSlice(null, (short[]) dataset);
+		} else if (dataset instanceof int[]) {
+			stack.addSlice(null, HDF5Utilities.convertToFloat((int[]) dataset));
+		} else if (dataset instanceof long[]) {
+			stack.addSlice(null, HDF5Utilities.convertToFloat((long[]) dataset));
+		} else if (dataset instanceof float[]) {
+			stack.addSlice(null, (float[]) dataset);
+		} else if (dataset instanceof double[]) {
+			stack.addSlice(null, HDF5Utilities.convertToFloat((double[]) dataset));
 		} else {
 			logger.warning("Datatype not supported");
 		}
@@ -486,33 +354,28 @@ public class HDF5Reader implements PlugIn {
 	
 
 	/**
-	 * Add RGB slice to stack
-	 * @param stack
-	 * @param wholeDataset
-	 * @param nRows
-	 * @param nColumns
-	 * @param startIdx
-	 * @param endIdx
+	 * Add RGB slice to image stack
+	 * @param stack		Stack to add slice
+	 * @param dataset	Dataset to create slice from
+	 * @param nRows		Number of rows of the dataset
+	 * @param nColumns	Number of columns of the dataset
 	 */
-	private void addSliceRGB(ImageStack stack, Object wholeDataset, int nRows, int nColumns, int startIdx) {
-		if(wholeDataset.getClass().isArray()){
-			int size = nRows*nColumns;
-			Object copy = Array.newInstance(wholeDataset.getClass().getComponentType(), size);
-			System.arraycopy(wholeDataset, startIdx, copy, 0, size);
-			addSliceRGB(stack, copy, nRows, nColumns);
-		}
+	private void addSliceRGB(ImageStack stack, Object dataset, int nRows, int nColumns) {
+		addSliceRGB(stack, dataset, nRows, nColumns, 0);
 	}
 	
+	
 	/**
-	 * Add RGB slice to stack
-	 * @param stack
-	 * @param wholeDataset
-	 * @param nRows
-	 * @param nColumns
+	 * Add RGB slice to image stack
+	 * @param stack		Stack to add slice
+	 * @param dataset	Dataset to create slice from
+	 * @param nRows		Number of rows of the dataset
+	 * @param nColumns	Number of columns of the dataset
+	 * @param startIdx	Index of dataset to start to create slice
 	 */
-	private void addSliceRGB(ImageStack stack, Object wholeDataset, int nRows, int nColumns) {
+	private void addSliceRGB(ImageStack stack, Object dataset, int nRows, int nColumns, int startIdx) {
 		int size = nRows*nColumns;
-		Class<?> type = wholeDataset.getClass().getComponentType();
+		Class<?> type = dataset.getClass().getComponentType();
 		
 		Object r = Array.newInstance(type, size);
 		Object g = Array.newInstance(type, size);
@@ -520,11 +383,11 @@ public class HDF5Reader implements PlugIn {
 		
 		for (int row = 0; row < nRows; ++row) {
 			for (int col = 0; col < nColumns; ++col) {
-				int offsetRGB = (row * nColumns * 3) + (col * 3);
+				int offsetRGB = startIdx + (row * nColumns * 3) + (col * 3);
 				int offset = (row * nColumns) + col;
-				Array.set(r, offset,Array.get(wholeDataset,offsetRGB + 0));
-				Array.set(g, offset,Array.get(wholeDataset,offsetRGB + 1));
-				Array.set(b, offset,Array.get(wholeDataset,offsetRGB + 2));
+				Array.set(r, offset,Array.get(dataset,offsetRGB + 0));
+				Array.set(g, offset,Array.get(dataset,offsetRGB + 1));
+				Array.set(b, offset,Array.get(dataset,offsetRGB + 2));
 			}
 		}
 		stack.addSlice(null, r);
@@ -534,7 +397,8 @@ public class HDF5Reader implements PlugIn {
 
 	
 	/**
-	 * Add AWT scroll bars to the given container.
+	 * Add AWT scroll bars to the given container
+	 * @param pane Pane to add scrollbar to
 	 */
 	public static void addScrollBars(Container pane) {
 		GridBagLayout layout = (GridBagLayout) pane.getLayout();
