@@ -79,8 +79,9 @@ public class HDF5Utilities {
 	
 	/**
 	 * Create group
-	 * @param file
-	 * @param groupName
+	 * 
+	 * @param file			HDF5 file handle
+	 * @param groupName		Group to create
 	 * @return
 	 */
 	public static Group createGroup( FileFormat file, String groupName) {
@@ -88,11 +89,10 @@ public class HDF5Utilities {
 	}
 	
 	/**
-	 * Creates group recursively relative to the given base group
-	 * 
-	 * @param groupRelativName relative group to be created
-	 * @param group	Base group - if null create group relative to /
-	 * @param file	File handle
+	 * Creates group relative to the given base group
+	 * @param file			HDF5 file handle
+	 * @param group			Base group
+	 * @param groupName		Group to create
 	 * @return
 	 */
 	public static Group createGroup( FileFormat file, Group group, String groupName) {
