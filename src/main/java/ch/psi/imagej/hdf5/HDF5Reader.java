@@ -1,25 +1,5 @@
 package ch.psi.imagej.hdf5;
 
-/*
- * =========================================================================
- * 
- * Copyright 2011 Matthias Schlachter
- * 
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
- * 
- * http://www.apache.org/licenses/LICENSE-2.0
- * 
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
- * 
- * =========================================================================
- */
-
 import ij.IJ;
 import ij.ImagePlus;
 import ij.CompositeImage;
@@ -29,6 +9,7 @@ import ij.io.OpenDialog;
 import ij.plugin.PlugIn;
 
 import java.io.File;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -48,7 +29,6 @@ public class HDF5Reader implements PlugIn {
 		HDF5Reader r = new HDF5Reader();
 		r.run("");
 	}
-	
 	
 	public void run(String arg) {
 
@@ -124,13 +104,12 @@ public class HDF5Reader implements PlugIn {
 					wholeDataset = checkUnsigned(datatype, wholeDataset);
 
 					ImageStack stack = new ImageStack((int) dimensions[3], (int) dimensions[2]);
-					int stackSize = (int) (dimensions[2] * dimensions[3]);
+					int stackSize = (int) (dimensions[2] * dimensions[3] * 3);
 					int singleVolumeSize = (int) (dimensions[1] * stackSize);
 					for (int volIDX = 0; volIDX < dimensions[0]; ++volIDX) {
 						for (int lev = 0; lev < dimensions[1]; ++lev) {
-							int startIdx = (volIDX * singleVolumeSize * 3) + (lev * stackSize * 3);
-							int endIdx = startIdx + stackSize * 3 - 1;
-							copyPixels4D_RGB(datatypeIfUnsupported, (int) dimensions[2], (int) dimensions[3], stack, wholeDataset, (int) stackSize, startIdx, endIdx);
+							int startIdx = (volIDX * singleVolumeSize * 3) + (lev * stackSize);
+							addSliceRGB(stack, wholeDataset, (int) dimensions[2], (int) dimensions[3], startIdx);
 						}
 					}
 
@@ -156,12 +135,10 @@ public class HDF5Reader implements PlugIn {
 					wholeDataset = checkUnsigned(datatype, wholeDataset);
 
 					ImageStack stack = new ImageStack((int) dimensions[2], (int) dimensions[1]);
-					long stackSize = dimensions[1] * dimensions[2] * 3;
+					int stackSize = (int) (dimensions[1] * dimensions[2] * 3);
 					for (int lev = 0; lev < dimensions[0]; ++lev) {
-						int startIdx = (int) (lev * stackSize);
-						int endIdx = (int) (startIdx + stackSize - 1);
-						int size = (int) (dimensions[2] * dimensions[1]);
-						copyPixels3D_RGB((int) dimensions[1], (int) dimensions[2], stack, wholeDataset, size, startIdx, endIdx);
+						int startIdx = lev * stackSize;
+						addSliceRGB( stack, wholeDataset, (int) dimensions[1], (int) dimensions[2], startIdx);
 					}
 
 					ImagePlus imp = new ImagePlus(directory + name + " " + datasetName, stack);
@@ -216,7 +193,7 @@ public class HDF5Reader implements PlugIn {
 					wholeDataset = checkUnsigned(datatype, wholeDataset);
 
 					ImageStack stack = new ImageStack((int) dimensions[1], (int) dimensions[0]);
-					copyPixels2D_RGB((int) dimensions[0], (int) dimensions[1], stack, wholeDataset, (int) (dimensions[1] * dimensions[0]));
+					addSliceRGB(stack, wholeDataset, (int) dimensions[0], (int) dimensions[1]);
 
 					ImagePlus imp = new ImagePlus(directory + name + " " + datasetName, stack);
 					imp.setDimensions(3, 1, 1);
@@ -509,396 +486,53 @@ public class HDF5Reader implements PlugIn {
 	
 
 	/**
-	 * @param datatypeIfUnsupported
-	 * @param extent
-	 * @param nRows (extent[2])
-	 * @param nColumns (extent[3])
+	 * Add RGB slice to stack
 	 * @param stack
 	 * @param wholeDataset
-	 * @param size
-	 * @param startIdx
-	 * @param endIdx
-	 */
-	private void copyPixels4D_RGB(Datatype datatypeIfUnsupported, int nRows, int nColumns, ImageStack stack, Object wholeDataset, int size, int startIdx, int endIdx) {
-		if (wholeDataset instanceof byte[]) {
-			byte[] tmp = Arrays.copyOfRange((byte[]) wholeDataset, startIdx, endIdx);
-			byte[] rChannel = new byte[size];
-			byte[] gChannel = new byte[size];
-			byte[] bChannel = new byte[size];
-			for (int row = 0; row < nRows; ++row) {
-				for (int col = 0; col < nColumns; ++col) {
-					int offsetRGB = (row * nRows * 3) + (col * 3);
-					int offset = (row * nRows) + col;
-					rChannel[offset] = tmp[offsetRGB + 0];
-					gChannel[offset] = tmp[offsetRGB + 1];
-					bChannel[offset] = tmp[offsetRGB + 2];
-				}
-			}
-			stack.addSlice(null, rChannel);
-			stack.addSlice(null, gChannel);
-			stack.addSlice(null, bChannel);
-		} else if (wholeDataset instanceof short[]) {
-			short[] tmp = Arrays.copyOfRange((short[]) wholeDataset, startIdx, endIdx);
-			short[] rChannel = new short[size];
-			short[] gChannel = new short[size];
-			short[] bChannel = new short[size];
-			for (int row = 0; row < nRows; ++row) {
-				for (int col = 0; col < nColumns; ++col) {
-					int offsetRGB = (row * nRows * 3) + (col * 3);
-					int offset = (row * nRows) + col;
-					rChannel[offset] = tmp[offsetRGB + 0];
-					gChannel[offset] = tmp[offsetRGB + 1];
-					bChannel[offset] = tmp[offsetRGB + 2];
-				}
-			}
-			stack.addSlice(null, rChannel);
-			stack.addSlice(null, gChannel);
-			stack.addSlice(null, bChannel);
-		} else if (wholeDataset instanceof int[]) {
-			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
-				float[] tmp = HDF5Utilities.convertToFloat(Arrays.copyOfRange((int[]) wholeDataset, startIdx, endIdx));
-				float[] rChannel = new float[size];
-				float[] gChannel = new float[size];
-				float[] bChannel = new float[size];
-				for (int row = 0; row < nRows; ++row) {
-					for (int col = 0; col < nColumns; ++col) {
-						int offsetRGB = (row * nRows * 3) + (col * 3);
-						int offset = (row * nRows) + col;
-						rChannel[offset] = tmp[offsetRGB + 0];
-						gChannel[offset] = tmp[offsetRGB + 1];
-						bChannel[offset] = tmp[offsetRGB + 2];
-					}
-				}
-				stack.addSlice(null, rChannel);
-				stack.addSlice(null, gChannel);
-				stack.addSlice(null, bChannel);
-			}
-			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
-				short[] tmp = HDF5Utilities.convertToShort(Arrays.copyOfRange((int[]) wholeDataset, startIdx, endIdx));
-				short[] rChannel = new short[size];
-				short[] gChannel = new short[size];
-				short[] bChannel = new short[size];
-				for (int row = 0; row < nRows; ++row) {
-					for (int col = 0; col < nColumns; ++col) {
-						int offsetRGB = (row * nRows * 3) + (col * 3);
-						int offset = (row * nRows) + col;
-						rChannel[offset] = tmp[offsetRGB + 0];
-						gChannel[offset] = tmp[offsetRGB + 1];
-						bChannel[offset] = tmp[offsetRGB + 2];
-					}
-				}
-				stack.addSlice(null, rChannel);
-				stack.addSlice(null, gChannel);
-				stack.addSlice(null, bChannel);
-			}
-		} else if (wholeDataset instanceof long[]) {
-			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_FLOAT) {
-				float[] tmp = HDF5Utilities.convertToFloat(Arrays.copyOfRange((long[]) wholeDataset, startIdx, endIdx));
-				float[] rChannel = new float[size];
-				float[] gChannel = new float[size];
-				float[] bChannel = new float[size];
-				for (int row = 0; row < nRows; ++row) {
-					for (int col = 0; col < nColumns; ++col) {
-						int offsetRGB = (row * nRows * 3) + (col * 3);
-						int offset = (row * nRows) + col;
-						rChannel[offset] = tmp[offsetRGB + 0];
-						gChannel[offset] = tmp[offsetRGB + 1];
-						bChannel[offset] = tmp[offsetRGB + 2];
-					}
-				}
-				stack.addSlice(null, rChannel);
-				stack.addSlice(null, gChannel);
-				stack.addSlice(null, bChannel);
-			}
-			if (datatypeIfUnsupported.getDatatypeClass() == Datatype.CLASS_INTEGER) {
-				short[] tmp = HDF5Utilities.convertToShort(Arrays.copyOfRange((long[]) wholeDataset, startIdx, endIdx));
-				short[] rChannel = new short[size];
-				short[] gChannel = new short[size];
-				short[] bChannel = new short[size];
-				for (int row = 0; row < nRows; ++row) {
-					for (int col = 0; col < nColumns; ++col) {
-						int offsetRGB = (row * nRows * 3) + (col * 3);
-						int offset = (row * nRows) + col;
-						rChannel[offset] = tmp[offsetRGB + 0];
-						gChannel[offset] = tmp[offsetRGB + 1];
-						bChannel[offset] = tmp[offsetRGB + 2];
-					}
-				}
-				stack.addSlice(null, rChannel);
-				stack.addSlice(null, gChannel);
-				stack.addSlice(null, bChannel);
-			}
-		} else if (wholeDataset instanceof float[]) {
-			float[] tmp = Arrays.copyOfRange((float[]) wholeDataset, startIdx, endIdx);
-			float[] rChannel = new float[size];
-			float[] gChannel = new float[size];
-			float[] bChannel = new float[size];
-			for (int row = 0; row < nRows; ++row) {
-				for (int col = 0; col < nColumns; ++col) {
-					int offsetRGB = (row * nRows * 3) + (col * 3);
-					int offset = (row * nRows) + col;
-					rChannel[offset] = tmp[offsetRGB + 0];
-					gChannel[offset] = tmp[offsetRGB + 1];
-					bChannel[offset] = tmp[offsetRGB + 2];
-				}
-			}
-			stack.addSlice(null, rChannel);
-			stack.addSlice(null, gChannel);
-			stack.addSlice(null, bChannel);
-		} else if (wholeDataset instanceof double[]) {
-			float[] tmp = HDF5Utilities.convertToFloat(Arrays.copyOfRange((double[]) wholeDataset, startIdx, endIdx));
-			float[] rChannel = new float[size];
-			float[] gChannel = new float[size];
-			float[] bChannel = new float[size];
-			for (int row = 0; row < nRows; ++row) {
-				for (int col = 0; col < nColumns; ++col) {
-					int offsetRGB = (row * nRows * 3) + (col * 3);
-					int offset = (row * nRows) + col;
-					rChannel[offset] = tmp[offsetRGB + 0];
-					gChannel[offset] = tmp[offsetRGB + 1];
-					bChannel[offset] = tmp[offsetRGB + 2];
-				}
-			}
-			stack.addSlice(null, rChannel);
-			stack.addSlice(null, gChannel);
-			stack.addSlice(null, bChannel);
-		} else {
-			logger.warning("Datatype not supported");
-		}
-	}
-
-
-	/**
-	 * @param nRows (extent[0])
-	 * @param nColumns (extent[1])
-	 * @param stack
-	 * @param wholeDataset
-	 * @param size
-	 */
-	private void copyPixels2D_RGB(int nRows, int nColumns, ImageStack stack, Object wholeDataset, int size) {
-		if (wholeDataset instanceof byte[]) {
-			byte[] tmp = (byte[]) wholeDataset;
-			byte[] rChannel = new byte[size];
-			byte[] gChannel = new byte[size];
-			byte[] bChannel = new byte[size];
-			for (int row = 0; row < nRows; ++row) {
-				for (int col = 0; col < nColumns; ++col) {
-					int offsetRGB = (row * nColumns * 3) + (col * 3);
-					int offset = (row * nColumns) + col;
-					rChannel[offset] = tmp[offsetRGB + 0];
-					gChannel[offset] = tmp[offsetRGB + 1];
-					bChannel[offset] = tmp[offsetRGB + 2];
-				}
-			}
-			stack.addSlice(null, rChannel);
-			stack.addSlice(null, gChannel);
-			stack.addSlice(null, bChannel);
-		} else if (wholeDataset instanceof short[]) {
-			short[] tmp = (short[]) wholeDataset;
-			short[] rChannel = new short[size];
-			short[] gChannel = new short[size];
-			short[] bChannel = new short[size];
-			for (int row = 0; row < nRows; ++row) {
-				for (int col = 0; col < nColumns; ++col) {
-					int offsetRGB = (row * nColumns * 3) + (col * 3);
-					int offset = (row * nColumns) + col;
-					rChannel[offset] = tmp[offsetRGB + 0];
-					gChannel[offset] = tmp[offsetRGB + 1];
-					bChannel[offset] = tmp[offsetRGB + 2];
-				}
-			}
-			stack.addSlice(null, rChannel);
-			stack.addSlice(null, gChannel);
-			stack.addSlice(null, bChannel);
-		} else if (wholeDataset instanceof int[]) {
-			int[] tmp = (int[]) wholeDataset;
-			int[] rChannel = new int[size];
-			int[] gChannel = new int[size];
-			int[] bChannel = new int[size];
-			for (int row = 0; row < nRows; ++row) {
-				for (int col = 0; col < nColumns; ++col) {
-					int offsetRGB = (row * nColumns * 3) + (col * 3);
-					int offset = (row * nColumns) + col;
-					rChannel[offset] = tmp[offsetRGB + 0];
-					gChannel[offset] = tmp[offsetRGB + 1];
-					bChannel[offset] = tmp[offsetRGB + 2];
-				}
-			}
-			stack.addSlice(null, rChannel);
-			stack.addSlice(null, gChannel);
-			stack.addSlice(null, bChannel);
-		} else if (wholeDataset instanceof long[]) {
-			long[] tmp = (long[]) wholeDataset;
-			long[] rChannel = new long[size];
-			long[] gChannel = new long[size];
-			long[] bChannel = new long[size];
-			for (int row = 0; row < nRows; ++row) {
-				for (int col = 0; col < nColumns; ++col) {
-					int offsetRGB = (row * nColumns * 3) + (col * 3);
-					int offset = (row * nColumns) + col;
-					rChannel[offset] = tmp[offsetRGB + 0];
-					gChannel[offset] = tmp[offsetRGB + 1];
-					bChannel[offset] = tmp[offsetRGB + 2];
-				}
-			}
-			stack.addSlice(null, rChannel);
-			stack.addSlice(null, gChannel);
-			stack.addSlice(null, bChannel);
-		} else if (wholeDataset instanceof float[]) {
-			float[] tmp = (float[]) wholeDataset;
-			float[] rChannel = new float[size];
-			float[] gChannel = new float[size];
-			float[] bChannel = new float[size];
-			for (int row = 0; row < nRows; ++row) {
-				for (int col = 0; col < nColumns; ++col) {
-					int offsetRGB = (row * nColumns * 3) + (col * 3);
-					int offset = (row * nColumns) + col;
-					rChannel[offset] = tmp[offsetRGB + 0];
-					gChannel[offset] = tmp[offsetRGB + 1];
-					bChannel[offset] = tmp[offsetRGB + 2];
-				}
-			}
-			stack.addSlice(null, rChannel);
-			stack.addSlice(null, gChannel);
-			stack.addSlice(null, bChannel);
-		} else if (wholeDataset instanceof double[]) {
-			double[] tmp = (double[]) wholeDataset;
-			double[] rChannel = new double[size];
-			double[] gChannel = new double[size];
-			double[] bChannel = new double[size];
-			for (int row = 0; row < nRows; ++row) {
-				for (int col = 0; col < nColumns; ++col) {
-					int offsetRGB = (row * nColumns * 3) + (col * 3);
-					int offset = (row * nColumns) + col;
-					rChannel[offset] = tmp[offsetRGB + 0];
-					gChannel[offset] = tmp[offsetRGB + 1];
-					bChannel[offset] = tmp[offsetRGB + 2];
-				}
-			}
-			stack.addSlice(null, rChannel);
-			stack.addSlice(null, gChannel);
-			stack.addSlice(null, bChannel);
-		}
-	}
-
-	/**
 	 * @param nRows
 	 * @param nColumns
-	 * @param stack
-	 * @param wholeDataset
 	 * @param startIdx
 	 * @param endIdx
-	 * @param size
 	 */
-	private void copyPixels3D_RGB(int nRows, int nColumns, ImageStack stack, Object wholeDataset, int size, int startIdx, int endIdx) {
-		if (wholeDataset instanceof byte[]) {
-			byte[] tmp = Arrays.copyOfRange((byte[]) wholeDataset, startIdx, endIdx);
-			byte[] rChannel = new byte[size];
-			byte[] gChannel = new byte[size];
-			byte[] bChannel = new byte[size];
-			for (int row = 0; row < nRows; ++row) {
-				for (int col = 0; col < nColumns; ++col) {
-					int offsetRGB = (row * nColumns * 3) + (col * 3);
-					int offset = (row * nColumns) + col;
-					rChannel[offset] = tmp[offsetRGB + 0];
-					gChannel[offset] = tmp[offsetRGB + 1];
-					bChannel[offset] = tmp[offsetRGB + 2];
-				}
-			}
-			stack.addSlice(null, rChannel);
-			stack.addSlice(null, gChannel);
-			stack.addSlice(null, bChannel);
-		} else if (wholeDataset instanceof short[]) {
-			short[] tmp = Arrays.copyOfRange((short[]) wholeDataset, startIdx, endIdx);
-			short[] rChannel = new short[size];
-			short[] gChannel = new short[size];
-			short[] bChannel = new short[size];
-			for (int row = 0; row < nRows; ++row) {
-				for (int col = 0; col < nColumns; ++col) {
-					int offsetRGB = (row * nColumns * 3) + (col * 3);
-					int offset = (row * nColumns) + col;
-					rChannel[offset] = tmp[offsetRGB + 0];
-					gChannel[offset] = tmp[offsetRGB + 1];
-					bChannel[offset] = tmp[offsetRGB + 2];
-				}
-			}
-			stack.addSlice(null, rChannel);
-			stack.addSlice(null, gChannel);
-			stack.addSlice(null, bChannel);
-		} else if (wholeDataset instanceof int[]) {
-			int[] tmp = Arrays.copyOfRange((int[]) wholeDataset, startIdx, endIdx);
-			int[] rChannel = new int[size];
-			int[] gChannel = new int[size];
-			int[] bChannel = new int[size];
-			for (int row = 0; row < nRows; ++row) {
-				for (int col = 0; col < nColumns; ++col) {
-					int offsetRGB = (row * nColumns * 3) + (col * 3);
-					int offset = (row * nColumns) + col;
-					rChannel[offset] = tmp[offsetRGB + 0];
-					gChannel[offset] = tmp[offsetRGB + 1];
-					bChannel[offset] = tmp[offsetRGB + 2];
-				}
-			}
-			stack.addSlice(null, rChannel);
-			stack.addSlice(null, gChannel);
-			stack.addSlice(null, bChannel);
-		} else if (wholeDataset instanceof long[]) {
-			long[] tmp = Arrays.copyOfRange((long[]) wholeDataset, startIdx, endIdx);
-			long[] rChannel = new long[size];
-			long[] gChannel = new long[size];
-			long[] bChannel = new long[size];
-			for (int row = 0; row < nRows; ++row) {
-				for (int col = 0; col < nColumns; ++col) {
-					int offsetRGB = (row * nColumns * 3) + (col * 3);
-					int offset = (row * nColumns) + col;
-					rChannel[offset] = tmp[offsetRGB + 0];
-					gChannel[offset] = tmp[offsetRGB + 1];
-					bChannel[offset] = tmp[offsetRGB + 2];
-				}
-			}
-			stack.addSlice(null, rChannel);
-			stack.addSlice(null, gChannel);
-			stack.addSlice(null, bChannel);
-		} else if (wholeDataset instanceof float[]) {
-			float[] tmp = Arrays.copyOfRange((float[]) wholeDataset, startIdx, endIdx);
-			float[] rChannel = new float[size];
-			float[] gChannel = new float[size];
-			float[] bChannel = new float[size];
-			for (int row = 0; row < nRows; ++row) {
-				for (int col = 0; col < nColumns; ++col) {
-					int offsetRGB = (row * nColumns * 3) + (col * 3);
-					int offset = (row * nColumns) + col;
-					rChannel[offset] = tmp[offsetRGB + 0];
-					gChannel[offset] = tmp[offsetRGB + 1];
-					bChannel[offset] = tmp[offsetRGB + 2];
-				}
-			}
-			stack.addSlice(null, rChannel);
-			stack.addSlice(null, gChannel);
-			stack.addSlice(null, bChannel);
-		} else if (wholeDataset instanceof double[]) {
-			double[] tmp = Arrays.copyOfRange((double[]) wholeDataset, startIdx, endIdx);
-			double[] rChannel = new double[size];
-			double[] gChannel = new double[size];
-			double[] bChannel = new double[size];
-			for (int row = 0; row < nRows; ++row) {
-				for (int col = 0; col < nColumns; ++col) {
-					int offsetRGB = (row * nColumns * 3) + (col * 3);
-					int offset = (row * nColumns) + col;
-					rChannel[offset] = tmp[offsetRGB + 0];
-					gChannel[offset] = tmp[offsetRGB + 1];
-					bChannel[offset] = tmp[offsetRGB + 2];
-				}
-			}
-			stack.addSlice(null, rChannel);
-			stack.addSlice(null, gChannel);
-			stack.addSlice(null, bChannel);
+	private void addSliceRGB(ImageStack stack, Object wholeDataset, int nRows, int nColumns, int startIdx) {
+		if(wholeDataset.getClass().isArray()){
+			int size = nRows*nColumns;
+			Object copy = Array.newInstance(wholeDataset.getClass().getComponentType(), size);
+			System.arraycopy(wholeDataset, startIdx, copy, 0, size);
+			addSliceRGB(stack, copy, nRows, nColumns);
 		}
+	}
+	
+	/**
+	 * Add RGB slice to stack
+	 * @param stack
+	 * @param wholeDataset
+	 * @param nRows
+	 * @param nColumns
+	 */
+	private void addSliceRGB(ImageStack stack, Object wholeDataset, int nRows, int nColumns) {
+		int size = nRows*nColumns;
+		Class<?> type = wholeDataset.getClass().getComponentType();
+		
+		Object r = Array.newInstance(type, size);
+		Object g = Array.newInstance(type, size);
+		Object b = Array.newInstance(type, size);
+		
+		for (int row = 0; row < nRows; ++row) {
+			for (int col = 0; col < nColumns; ++col) {
+				int offsetRGB = (row * nColumns * 3) + (col * 3);
+				int offset = (row * nColumns) + col;
+				Array.set(r, offset,Array.get(wholeDataset,offsetRGB + 0));
+				Array.set(g, offset,Array.get(wholeDataset,offsetRGB + 1));
+				Array.set(b, offset,Array.get(wholeDataset,offsetRGB + 2));
+			}
+		}
+		stack.addSlice(null, r);
+		stack.addSlice(null, g);
+		stack.addSlice(null, b);
 	}
 
 	
-
-
 	/**
 	 * Add AWT scroll bars to the given container.
 	 */

@@ -105,6 +105,16 @@ public class HDF5Utilities {
 	}
 	
 	/**
+	 * Create group
+	 * @param file
+	 * @param groupName
+	 * @return
+	 */
+	public static Group createGroup( FileFormat file, String groupName) {
+		return createGroup(file, (Group) ((DefaultMutableTreeNode) file.getRootNode()).getUserObject(),  groupName);
+	}
+	
+	/**
 	 * Creates group recursively relative to the given base group
 	 * 
 	 * @param groupRelativName relative group to be created
@@ -112,8 +122,8 @@ public class HDF5Utilities {
 	 * @param file	File handle
 	 * @return
 	 */
-	public static Group createGroup(String groupRelativName, Group group, FileFormat file) {
-		if (groupRelativName == null || file == null)
+	public static Group createGroup( FileFormat file, Group group, String groupName) {
+		if (groupName == null || file == null)
 			return null;
 
 		if (group == null){
@@ -121,24 +131,24 @@ public class HDF5Utilities {
 		}
 
 		// Trim leading and trailing slashes
-		while (groupRelativName.charAt(0) == '/') {
-			groupRelativName = groupRelativName.substring(1);
+		while (groupName.charAt(0) == '/') {
+			groupName = groupName.substring(1);
 		}
-		while (groupRelativName.charAt(groupRelativName.length() - 1) == '/') {
-			groupRelativName = groupRelativName.substring(0, groupRelativName.length() - 2);
+		while (groupName.charAt(groupName.length() - 1) == '/') {
+			groupName = groupName.substring(0, groupName.length() - 2);
 		}
 
-		int posOfSlash = groupRelativName.indexOf('/');
+		int posOfSlash = groupName.indexOf('/');
 
 		if (posOfSlash == -1) {
 			try {
 				Group newGroup;
 				String newGroupName;
 				if (group.isRoot()){
-					newGroupName = "/" + groupRelativName;
+					newGroupName = "/" + groupName;
 				}
 				else{
-					newGroupName = group.getFullName() + "/" + groupRelativName;
+					newGroupName = group.getFullName() + "/" + groupName;
 				}
 				newGroup = (Group) file.get(newGroupName);
 				if (newGroup == null){
@@ -149,8 +159,8 @@ public class HDF5Utilities {
 				return null;
 			}
 		} else {
-			String subgroupRelativName = groupRelativName.substring(posOfSlash);
-			String currentGroup = groupRelativName.substring(0, posOfSlash);
+			String subgroupRelativName = groupName.substring(posOfSlash);
+			String currentGroup = groupName.substring(0, posOfSlash);
 			logger.info("Create: " + currentGroup);
 			logger.info("Call back for: " + subgroupRelativName);
 			try {
@@ -170,7 +180,7 @@ public class HDF5Utilities {
 					newGroup = file.createGroup(newGroupName, group);
 				}
 
-				return createGroup(subgroupRelativName, newGroup, file);
+				return createGroup(file, newGroup, subgroupRelativName );
 			} catch (Exception e) {
 				return null;
 			}
