@@ -16,6 +16,14 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.awt.*;
 
+import javax.swing.BoxLayout;
+import javax.swing.DefaultListCellRenderer;
+import javax.swing.JLabel;
+import javax.swing.JList;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.ScrollPaneConstants;
+
 import ncsa.hdf.object.*;
 import ncsa.hdf.object.h5.*;
 import ncsa.hdf.hdf5lib.exceptions.HDF5Exception;
@@ -254,60 +262,44 @@ public class HDF5Reader implements PlugIn {
 		
 		if (datasets.size() < 1) {
 			IJ.error("The file does not contain datasets");
-		} else if (datasets.size() > 1000) {
-			
-			logger.info("#######");
-			for(Dataset d: datasets){
-				logger.info(d.getFullName());
-			}
-			logger.info("#######");
+		} else {
+		    
+			// TODO only display datasets >= 2D
+			JList<Dataset> list = new JList<>(datasets.toArray(new Dataset[datasets.size()]));
+			list.setCellRenderer(new DefaultListCellRenderer() {
+				private static final long serialVersionUID = 1L;
+				public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus)	{
+					JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+					final Dataset d = ((Dataset) value);
+					label.setText(d.getFullName()+" ("+d.getRank()+"D)");
+					return label;
+
+				}
+			});
+		    
+		    JScrollPane scroll = new JScrollPane(list);
+		    scroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
+		    
+			JPanel panel = new JPanel();
+			panel.setLayout(new BoxLayout(panel,BoxLayout.Y_AXIS));
+			panel.add(scroll);
+//			JPanel lpanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+//			lpanel.add(new JLabel("Too much entries - Please enter the full path of the dataset to be displayed"));
+//			panel.add(lpanel);
+//			JPanel tpanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+//			tpanel.add(new JLabel("Dataset: "));
+//			JTextField tfield = new JTextField("",60);
+//			tpanel.add(tfield);
+//			panel.add(tpanel);
 			
 			gd = new GenericDialog("Variable Name Selection");
-			gd.addMessage("There are lots of datasets in your file (check the log output which datasets are available)! Please enter the full path of the dataset to be displayed");
-			gd.addStringField("Dataset", "");
+			gd.add(panel);
+			gd.addMessage("");
+			gd.pack();
 			gd.showDialog();
 
 			if (!gd.wasCanceled()) {
-				String dsName = gd.getNextString();
-				for(Dataset d: datasets){
-					if(d.getFullName().equals(dsName)){
-						selectedDatasets.add(d);
-					}
-				}
-				if(selectedDatasets.isEmpty()){
-					IJ.error("The file does not contain a variable with name " + "`" + dsName + "`!");
-				}
-			}
-		} else {
-			String[] varSelections = new String[datasets.size()];
-			boolean[] defaultValues = new boolean[datasets.size()];
-			for (int i = 0; i < datasets.size(); i++) {
-				Dataset var = datasets.get(i);
-				int rank = var.getRank();
-				String title = rank + "D: " + var.getFullName() + "              " + var.getDatatype().getDatatypeDescription() + "( ";
-				long[] extent = var.getDims();
-				for (int d = 0; d < rank; ++d) {
-					if (d != 0){
-						title += "x";
-					}
-					title += extent[d];
-				}
-				title += ")";
-				varSelections[i] = title;
-				defaultValues[i] = false;
-			}
-			logger.info("Add checkbox group with " + datasets.size() + " rows");
-			gd.addCheckboxGroup(datasets.size(), 1, varSelections, defaultValues);
-			addScrollBars(gd);
-			gd.showDialog();
-
-			if (!gd.wasCanceled()) {
-				// Get selected datasets
-				for (int i = 0; i < datasets.size(); ++i) {
-					if (gd.getNextBoolean()) {
-						selectedDatasets.add(datasets.get(i));
-					}
-				}
+				selectedDatasets = list.getSelectedValuesList();
 			}
 		}
 		
@@ -393,75 +385,5 @@ public class HDF5Reader implements PlugIn {
 		stack.addSlice(null, r);
 		stack.addSlice(null, g);
 		stack.addSlice(null, b);
-	}
-
-	
-	/**
-	 * Add AWT scroll bars to the given container
-	 * @param pane Pane to add scrollbar to
-	 */
-	public static void addScrollBars(Container pane) {
-		GridBagLayout layout = (GridBagLayout) pane.getLayout();
-
-		// extract components
-		int count = pane.getComponentCount();
-		Component[] c = new Component[count];
-		GridBagConstraints[] gbc = new GridBagConstraints[count];
-		for (int i = 0; i < count; i++) {
-			c[i] = pane.getComponent(i);
-			gbc[i] = layout.getConstraints(c[i]);
-		}
-
-		// clear components
-		pane.removeAll();
-		layout.invalidateLayout(pane);
-
-		// create new container panel
-		Panel newPane = new Panel();
-		GridBagLayout newLayout = new GridBagLayout();
-		newPane.setLayout(newLayout);
-		for (int i = 0; i < count; i++) {
-			newLayout.setConstraints(c[i], gbc[i]);
-			newPane.add(c[i]);
-		}
-
-		Frame f = new Frame();
-		f.setLayout(new BorderLayout());
-		f.add(newPane, BorderLayout.WEST);
-		f.pack();
-		final Dimension size = newPane.getSize();
-		f.remove(newPane);
-		f.dispose();
-
-		// compute best size for scrollable viewport
-		size.width += 15;
-		size.height += 15;
-		Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
-		int maxWidth = 3 * screen.width / 4;
-		int maxHeight = 3 * screen.height / 4;
-		if (size.width > maxWidth){
-			size.width = maxWidth;
-		}
-		if (size.height > maxHeight){
-			size.height = maxHeight;
-		}
-
-		// create scroll pane
-		ScrollPane scroll = new ScrollPane() {
-			private static final long serialVersionUID = 1L;
-			public Dimension getPreferredSize() {
-				return size;
-			}
-		};
-		scroll.add(newPane);
-
-		// add scroll pane to original container
-		GridBagConstraints constraints = new GridBagConstraints();
-		constraints.anchor = GridBagConstraints.WEST;
-		constraints.fill = GridBagConstraints.BOTH;
-		constraints.weightx = 1.0;
-		constraints.weighty = 1.0;
-		layout.setConstraints(scroll, constraints);
-		pane.add(scroll);
 	}
 }
