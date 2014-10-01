@@ -69,6 +69,29 @@ public class HDF5Reader implements PlugIn {
 			List<Dataset> datasets = HDF5Utilities.getDatasets(file);
 			SelectedDatasets selectedDatasets = selectDatasets(datasets);
 
+			
+			// TODO Remove
+			// Hack as a proof of principle
+			if(selectedDatasets.isGroup()){
+				ImageStack stack = null;
+				
+				for (Dataset var : selectedDatasets.getDatasets()) {
+					if(stack == null){
+						long[] dimensions= var.getDims();
+						stack = new ImageStack((int) dimensions[1], (int) dimensions[0]);
+					}
+					
+					Object wholeDataset = var.read();
+					addSlice(stack, wholeDataset);
+				}
+				
+				ImagePlus imp = new ImagePlus(filename, stack);
+				imp.resetDisplayRange();
+				imp.show();
+				return;
+			}
+			
+			
 			for (Dataset var : selectedDatasets.getDatasets()) {
 
 				// Read dataset attributes and properties
@@ -286,7 +309,7 @@ public class HDF5Reader implements PlugIn {
 			JPanel panel = new JPanel();
 			panel.setLayout(new BoxLayout(panel,BoxLayout.Y_AXIS));
 			panel.add(scroll);
-			JCheckBox checkbox = new JCheckBox("Group Datasets");
+			JCheckBox checkbox = new JCheckBox("Group Datasets (2D datasets only)");
 			panel.add(checkbox);
 			
 			gd = new GenericDialog("Variable Name Selection");
