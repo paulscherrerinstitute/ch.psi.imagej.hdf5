@@ -64,6 +64,7 @@ public class HDF5Reader implements PlugIn {
 		H5File file = null;
 		try {
 			file = new H5File(filename, H5File.READ);
+			file.setMaxMembers(Integer.MAX_VALUE);
 			file.open();
 
 			List<Dataset> datasets = HDF5Utilities.getDatasets(file);
