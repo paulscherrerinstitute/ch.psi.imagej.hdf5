@@ -10,6 +10,8 @@ public class DatasetSelection {
 	private List<Dataset> datasets = new ArrayList<Dataset>();
 	private boolean group = false;
 	private Integer slice;
+	// Intervall to read images
+	private Integer modulo;
 	
 	public List<Dataset> getDatasets() {
 		return datasets;
@@ -28,5 +30,11 @@ public class DatasetSelection {
 	}
 	public Integer getSlice() {
 		return slice;
+	}
+	public void setModulo(Integer modulo) {
+		this.modulo = modulo;
+	}
+	public Integer getModulo() {
+		return modulo;
 	}
 }

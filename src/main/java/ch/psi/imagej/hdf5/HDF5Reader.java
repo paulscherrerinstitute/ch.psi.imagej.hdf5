@@ -10,20 +10,9 @@ import ij.plugin.PlugIn;
 
 import java.io.File;
 import java.lang.reflect.Array;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.awt.*;
-
-import javax.swing.BoxLayout;
-import javax.swing.DefaultListCellRenderer;
-import javax.swing.JCheckBox;
-import javax.swing.JLabel;
-import javax.swing.JList;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.ScrollPaneConstants;
 
 import ncsa.hdf.object.*;
 import ncsa.hdf.object.h5.*;
@@ -238,6 +227,29 @@ public class HDF5Reader implements PlugIn {
 //						int startIdx = selectedDatasets.getSlice() * size;
 						addSlice(stack, wholeDataset, 0, size);
 					}
+					else if(selectedDatasets.getModulo()!=null){
+						logger.info("Read every "+selectedDatasets.getModulo()+" image");
+						// Select what to readout
+						
+						stack = new ImageStack((int) dimensions[2], (int) dimensions[1]);
+						
+						for(int indexToRead=0;indexToRead<dimensions[0]; indexToRead=indexToRead+selectedDatasets.getModulo()){
+							
+							long[] selected = var.getSelectedDims();
+							selected[0] = 1;
+							selected[1] = dimensions[1];
+							selected[2] = dimensions[2];
+	
+							long[] start = var.getStartDims();
+							start[0] = indexToRead;
+							
+							Object wholeDataset = var.read();
+	
+							int size = (int) (dimensions[1] * dimensions[2]);
+//							int startIdx = selectedDatasets.getSlice() * size;
+							addSlice(stack, wholeDataset, 0, size);
+						}
+					}
 					else{
 						// Select what to readout
 						long[] selected = var.getSelectedDims();
@@ -322,6 +334,7 @@ public class HDF5Reader implements PlugIn {
 				selectedDatasets.setDatasets(panel.getSelectedValues());
 				selectedDatasets.setGroup(panel.groupValues());
 				selectedDatasets.setSlice(panel.getSlice());
+				selectedDatasets.setModulo(panel.getModulo());
 			}
 		
 		return selectedDatasets;

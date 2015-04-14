@@ -89,8 +89,16 @@ public class SelectionPanel extends JPanel {
 	
 	public Integer getSlice(){
 		String text = textField.getText();
-		if(text.matches("[0-9]+")){
+		if(text.matches("^[0-9]+$")){
 			return new Integer(text);
+		}
+		return null;
+	}
+	
+	public Integer getModulo(){
+		String text = textField.getText();
+		if(text.matches("^%[0-9]+$")){
+			return new Integer(text.replace("%", ""));
 		}
 		return null;
 	}
