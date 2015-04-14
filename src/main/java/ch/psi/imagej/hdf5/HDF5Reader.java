@@ -10,20 +10,9 @@ import ij.plugin.PlugIn;
 
 import java.io.File;
 import java.lang.reflect.Array;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.awt.*;
-
-import javax.swing.BoxLayout;
-import javax.swing.DefaultListCellRenderer;
-import javax.swing.JCheckBox;
-import javax.swing.JLabel;
-import javax.swing.JList;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.ScrollPaneConstants;
 
 import ncsa.hdf.object.*;
 import ncsa.hdf.object.h5.*;
@@ -68,7 +57,7 @@ public class HDF5Reader implements PlugIn {
 			file.open();
 
 			List<Dataset> datasets = HDF5Utilities.getDatasets(file);
-			SelectedDatasets selectedDatasets = selectDatasets(datasets);
+			DatasetSelection selectedDatasets = selectDatasets(datasets);
 
 			
 			// TODO Remove
@@ -217,19 +206,67 @@ public class HDF5Reader implements PlugIn {
 				} else if (numberOfDimensions == 3) {
 					logger.info("3D Image");
 
-					// Select what to readout
-					long[] selected = var.getSelectedDims();
-					selected[0] = dimensions[0];
-					selected[1] = dimensions[1];
-					selected[2] = dimensions[2];
+					ImageStack stack;
+					
+					if(selectedDatasets.getSlice()!=null){
+						
+						// Select what to readout
+						long[] selected = var.getSelectedDims();
+						selected[0] = 1;
+						selected[1] = dimensions[1];
+						selected[2] = dimensions[2];
+						
+						long[] start = var.getStartDims();
+						start[0] = selectedDatasets.getSlice();
 
-					Object wholeDataset = var.read();
+						Object wholeDataset = var.read();
+						
+						stack = new ImageStack((int) dimensions[2], (int) dimensions[1]);
+						int size = (int) (dimensions[1] * dimensions[2]);
+						
+//						int startIdx = selectedDatasets.getSlice() * size;
+						addSlice(stack, wholeDataset, 0, size);
+					}
+					else if(selectedDatasets.getModulo()!=null){
+						logger.info("Read every "+selectedDatasets.getModulo()+" image");
+						// Select what to readout
+						
+						stack = new ImageStack((int) dimensions[2], (int) dimensions[1]);
+						
+						for(int indexToRead=0;indexToRead<dimensions[0]; indexToRead=indexToRead+selectedDatasets.getModulo()){
+							
+							long[] selected = var.getSelectedDims();
+							selected[0] = 1;
+							selected[1] = dimensions[1];
+							selected[2] = dimensions[2];
+	
+							long[] start = var.getStartDims();
+							start[0] = indexToRead;
+							
+							Object wholeDataset = var.read();
+	
+							int size = (int) (dimensions[1] * dimensions[2]);
+//							int startIdx = selectedDatasets.getSlice() * size;
+							addSlice(stack, wholeDataset, 0, size);
+						}
+					}
+					else{
+						// Select what to readout
+						long[] selected = var.getSelectedDims();
+						selected[0] = dimensions[0];
+						selected[1] = dimensions[1];
+						selected[2] = dimensions[2];
 
-					ImageStack stack = new ImageStack((int) dimensions[2], (int) dimensions[1]);
-					int size = (int) (dimensions[1] * dimensions[2]);
-					for (int lev = 0; lev < dimensions[0]; ++lev) {
-						int startIdx = lev * size;
-						addSlice(stack, wholeDataset, startIdx, size);
+						
+						Object wholeDataset = var.read();
+
+						stack = new ImageStack((int) dimensions[2], (int) dimensions[1]);
+						int size = (int) (dimensions[1] * dimensions[2]);
+						
+						for (int lev = 0; lev < dimensions[0]; ++lev) {
+							int startIdx = lev * size;
+							addSlice(stack, wholeDataset, startIdx, size);
+						}
 					}
 
 					ImagePlus imp = new ImagePlus(filename + " " + datasetName, stack);
@@ -279,39 +316,12 @@ public class HDF5Reader implements PlugIn {
 	 * @return	List of datasets to visualize. If nothing selected the list will be empty
 	 * @throws HDF5Exception
 	 */
-	private SelectedDatasets selectDatasets(List<Dataset> datasets) throws HDF5Exception {
+	private DatasetSelection selectDatasets(List<Dataset> datasets) throws HDF5Exception {
 		
 		GenericDialog gd = new GenericDialog("Variable Name Selection");
 		gd.addMessage("Please select variables to be loaded.\n");
 		
-			// Filter datasets that are not potential images / that cannot be displayed
-			List<Dataset> fdatasets = new ArrayList<Dataset>();
-			for(Dataset d: datasets){
-				if(d.getRank()>=2 && d.getRank()<=5){
-					fdatasets.add(d);
-				}
-			}
-			
-			JList<Dataset> list = new JList<>(fdatasets.toArray(new Dataset[fdatasets.size()]));
-			list.setCellRenderer(new DefaultListCellRenderer() {
-				private static final long serialVersionUID = 1L;
-				public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus)	{
-					JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-					final Dataset d = ((Dataset) value);
-					label.setText(d.getFullName()+" ("+d.getRank()+"D)");
-					return label;
-
-				}
-			});
-		    
-		    JScrollPane scroll = new JScrollPane(list);
-		    scroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
-		    
-			JPanel panel = new JPanel();
-			panel.setLayout(new BoxLayout(panel,BoxLayout.Y_AXIS));
-			panel.add(scroll);
-			JCheckBox checkbox = new JCheckBox("Group Datasets (2D datasets only)");
-			panel.add(checkbox);
+		SelectionPanel panel = new SelectionPanel(datasets);
 			
 			gd = new GenericDialog("Variable Name Selection");
 			gd.add(panel);
@@ -319,10 +329,12 @@ public class HDF5Reader implements PlugIn {
 			gd.pack();
 			gd.showDialog();
 
-			SelectedDatasets selectedDatasets = new SelectedDatasets();
+			DatasetSelection selectedDatasets = new DatasetSelection();
 			if (!gd.wasCanceled()) {
-				selectedDatasets.setDatasets(list.getSelectedValuesList());
-				selectedDatasets.setGroup(checkbox.isSelected());
+				selectedDatasets.setDatasets(panel.getSelectedValues());
+				selectedDatasets.setGroup(panel.groupValues());
+				selectedDatasets.setSlice(panel.getSlice());
+				selectedDatasets.setModulo(panel.getModulo());
 			}
 		
 		return selectedDatasets;
