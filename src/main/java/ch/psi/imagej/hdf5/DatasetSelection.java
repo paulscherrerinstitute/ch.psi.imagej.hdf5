@@ -12,6 +12,7 @@ public class DatasetSelection {
 	private Integer slice;
 	// Intervall to read images
 	private Integer modulo;
+	private boolean virtualStack;
 	
 	public List<Dataset> getDatasets() {
 		return datasets;
@@ -36,5 +37,11 @@ public class DatasetSelection {
 	}
 	public Integer getModulo() {
 		return modulo;
+	}
+	public void setVirtualStack(boolean virtualStack) {
+		this.virtualStack = virtualStack;
+	}
+	public boolean isVirtualStack(){
+		return this.virtualStack;
 	}
 }

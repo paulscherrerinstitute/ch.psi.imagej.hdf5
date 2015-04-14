@@ -51,6 +51,7 @@ public class HDF5Reader implements PlugIn {
 		
 		// Read HDF5 file
 		H5File file = null;
+		boolean close = true;
 		try {
 			file = new H5File(filename, H5File.READ);
 			file.setMaxMembers(Integer.MAX_VALUE);
@@ -58,6 +59,8 @@ public class HDF5Reader implements PlugIn {
 
 			List<Dataset> datasets = HDF5Utilities.getDatasets(file);
 			DatasetSelection selectedDatasets = selectDatasets(datasets);
+			// TODO to be removed - Workaround virtual stack - keep HDF5 file open at the end 
+			close=!selectedDatasets.isVirtualStack();
 
 			
 			// TODO Remove
@@ -208,64 +211,70 @@ public class HDF5Reader implements PlugIn {
 
 					ImageStack stack;
 					
-					if(selectedDatasets.getSlice()!=null){
-						
-						// Select what to readout
-						long[] selected = var.getSelectedDims();
-						selected[0] = 1;
-						selected[1] = dimensions[1];
-						selected[2] = dimensions[2];
-						
-						long[] start = var.getStartDims();
-						start[0] = selectedDatasets.getSlice();
-
-						Object wholeDataset = var.read();
-						
-						stack = new ImageStack((int) dimensions[2], (int) dimensions[1]);
-						int size = (int) (dimensions[1] * dimensions[2]);
-						
-//						int startIdx = selectedDatasets.getSlice() * size;
-						addSlice(stack, wholeDataset, 0, size);
+					if(selectedDatasets.isVirtualStack()){
+						logger.info("Use virtual stack");
+						stack = new VirtualStackHDF5(var);
 					}
-					else if(selectedDatasets.getModulo()!=null){
-						logger.info("Read every "+selectedDatasets.getModulo()+" image");
-						// Select what to readout
-						
-						stack = new ImageStack((int) dimensions[2], (int) dimensions[1]);
-						
-						for(int indexToRead=0;indexToRead<dimensions[0]; indexToRead=indexToRead+selectedDatasets.getModulo()){
+					else{
+						if(selectedDatasets.getSlice()!=null){
 							
+							// Select what to readout
 							long[] selected = var.getSelectedDims();
 							selected[0] = 1;
 							selected[1] = dimensions[1];
 							selected[2] = dimensions[2];
-	
+							
 							long[] start = var.getStartDims();
-							start[0] = indexToRead;
+							start[0] = selectedDatasets.getSlice();
+	
+							Object wholeDataset = var.read();
+							
+							stack = new ImageStack((int) dimensions[2], (int) dimensions[1]);
+							int size = (int) (dimensions[1] * dimensions[2]);
+							
+	//						int startIdx = selectedDatasets.getSlice() * size;
+							addSlice(stack, wholeDataset, 0, size);
+						}
+						else if(selectedDatasets.getModulo()!=null){
+							logger.info("Read every "+selectedDatasets.getModulo()+" image");
+							// Select what to readout
+							
+							stack = new ImageStack((int) dimensions[2], (int) dimensions[1]);
+							
+							for(int indexToRead=0;indexToRead<dimensions[0]; indexToRead=indexToRead+selectedDatasets.getModulo()){
+								
+								long[] selected = var.getSelectedDims();
+								selected[0] = 1;
+								selected[1] = dimensions[1];
+								selected[2] = dimensions[2];
+		
+								long[] start = var.getStartDims();
+								start[0] = indexToRead;
+								
+								Object wholeDataset = var.read();
+		
+								int size = (int) (dimensions[1] * dimensions[2]);
+	//							int startIdx = selectedDatasets.getSlice() * size;
+								addSlice(stack, wholeDataset, 0, size);
+							}
+						}
+						else{
+							// Select what to readout
+							long[] selected = var.getSelectedDims();
+							selected[0] = dimensions[0];
+							selected[1] = dimensions[1];
+							selected[2] = dimensions[2];
+	
 							
 							Object wholeDataset = var.read();
 	
+							stack = new ImageStack((int) dimensions[2], (int) dimensions[1]);
 							int size = (int) (dimensions[1] * dimensions[2]);
-//							int startIdx = selectedDatasets.getSlice() * size;
-							addSlice(stack, wholeDataset, 0, size);
-						}
-					}
-					else{
-						// Select what to readout
-						long[] selected = var.getSelectedDims();
-						selected[0] = dimensions[0];
-						selected[1] = dimensions[1];
-						selected[2] = dimensions[2];
-
-						
-						Object wholeDataset = var.read();
-
-						stack = new ImageStack((int) dimensions[2], (int) dimensions[1]);
-						int size = (int) (dimensions[1] * dimensions[2]);
-						
-						for (int lev = 0; lev < dimensions[0]; ++lev) {
-							int startIdx = lev * size;
-							addSlice(stack, wholeDataset, startIdx, size);
+							
+							for (int lev = 0; lev < dimensions[0]; ++lev) {
+								int startIdx = lev * size;
+								addSlice(stack, wholeDataset, startIdx, size);
+							}
 						}
 					}
 
@@ -297,8 +306,11 @@ public class HDF5Reader implements PlugIn {
 			IJ.outOfMemory("Out of memory while loading file: " + filename);
 		} finally {
 			try {
-				if (file != null) {
-					file.close();
+				// TODO workaround - to be removed
+				if(close){
+					if (file != null) {
+						file.close();
+					}
 				}
 			} catch (HDF5Exception e) {
 				logger.log(Level.WARNING, "Error while closing: " + filename, e);
@@ -335,6 +347,7 @@ public class HDF5Reader implements PlugIn {
 				selectedDatasets.setGroup(panel.groupValues());
 				selectedDatasets.setSlice(panel.getSlice());
 				selectedDatasets.setModulo(panel.getModulo());
+				selectedDatasets.setVirtualStack(panel.useVirtualStack());
 			}
 		
 		return selectedDatasets;

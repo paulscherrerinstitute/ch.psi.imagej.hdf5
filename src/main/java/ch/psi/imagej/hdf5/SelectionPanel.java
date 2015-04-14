@@ -24,7 +24,7 @@ public class SelectionPanel extends JPanel {
 
 	private final JList<Dataset> list;
 	private JCheckBox checkbox;
-	private JCheckBox chckbxNewCheckBox;
+	private JCheckBox checkBoxVirtualStack;
 	private JLabel lblSlice;
 	private JPanel panel;
 	private JTextField textField;
@@ -63,8 +63,8 @@ public class SelectionPanel extends JPanel {
 		checkbox = new JCheckBox("Group Datasets (2D datasets only)");
 		add(checkbox);
 		
-		chckbxNewCheckBox = new JCheckBox("Virtual Stack");
-		add(chckbxNewCheckBox);
+		checkBoxVirtualStack = new JCheckBox("Virtual Stack");
+		add(checkBoxVirtualStack);
 		
 		panel = new JPanel();
 		FlowLayout flowLayout = (FlowLayout) panel.getLayout();
@@ -101,5 +101,9 @@ public class SelectionPanel extends JPanel {
 			return new Integer(text.replace("%", ""));
 		}
 		return null;
+	}
+	
+	public boolean useVirtualStack(){
+		return checkBoxVirtualStack.isSelected();
 	}
 }
