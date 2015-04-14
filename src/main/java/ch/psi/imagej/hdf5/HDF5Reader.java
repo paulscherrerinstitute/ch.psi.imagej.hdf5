@@ -284,34 +284,7 @@ public class HDF5Reader implements PlugIn {
 		GenericDialog gd = new GenericDialog("Variable Name Selection");
 		gd.addMessage("Please select variables to be loaded.\n");
 		
-			// Filter datasets that are not potential images / that cannot be displayed
-			List<Dataset> fdatasets = new ArrayList<Dataset>();
-			for(Dataset d: datasets){
-				if(d.getRank()>=2 && d.getRank()<=5){
-					fdatasets.add(d);
-				}
-			}
-			
-			JList<Dataset> list = new JList<>(fdatasets.toArray(new Dataset[fdatasets.size()]));
-			list.setCellRenderer(new DefaultListCellRenderer() {
-				private static final long serialVersionUID = 1L;
-				public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus)	{
-					JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-					final Dataset d = ((Dataset) value);
-					label.setText(d.getFullName()+" ("+d.getRank()+"D)");
-					return label;
-
-				}
-			});
-		    
-		    JScrollPane scroll = new JScrollPane(list);
-		    scroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
-		    
-			JPanel panel = new JPanel();
-			panel.setLayout(new BoxLayout(panel,BoxLayout.Y_AXIS));
-			panel.add(scroll);
-			JCheckBox checkbox = new JCheckBox("Group Datasets (2D datasets only)");
-			panel.add(checkbox);
+		SelectionPanel panel = new SelectionPanel(datasets);
 			
 			gd = new GenericDialog("Variable Name Selection");
 			gd.add(panel);
@@ -321,8 +294,8 @@ public class HDF5Reader implements PlugIn {
 
 			SelectedDatasets selectedDatasets = new SelectedDatasets();
 			if (!gd.wasCanceled()) {
-				selectedDatasets.setDatasets(list.getSelectedValuesList());
-				selectedDatasets.setGroup(checkbox.isSelected());
+				selectedDatasets.setDatasets(panel.getSelectedValues());
+				selectedDatasets.setGroup(panel.groupValues());
 			}
 		
 		return selectedDatasets;
