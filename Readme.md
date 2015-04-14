@@ -2,7 +2,9 @@
 
 ImageJ plugin for reading and writing HDF5 files.
 
-
+For 3D datasets an individual slice can be selected for visualization.
+Also, especially for very big datasets only every x-th slice can be selected
+for visualization. This can be done by either specifying a number, e.g. `10` (for the slice 10) or a number with a preceding %, e.g. `%10` (for every 10th image). Indexing starts at 0.
 
 # Usage
 
