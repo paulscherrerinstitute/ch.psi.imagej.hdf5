@@ -158,10 +158,10 @@ public class VirtualStackHDF5 extends ImageStack {
 		return bitDepth;
 	}
 	
-	@Override
-	protected void finalize() throws Throwable {
-		super.finalize();
-		
+	/**
+	 * Close HDF5 file
+	 */
+	public void close() {		
 		logger.info("Closing HDF5 file");
 		try{
 			file.close();

@@ -278,7 +278,7 @@ public class HDF5Reader implements PlugIn {
 						}
 					}
 
-					ImagePlus imp = new ImagePlus(filename + " " + datasetName, stack);
+					ImagePlus imp = new ImagePlusHDF5(filename + " " + datasetName, stack);
 					imp.resetDisplayRange();
 					imp.show();
 					
