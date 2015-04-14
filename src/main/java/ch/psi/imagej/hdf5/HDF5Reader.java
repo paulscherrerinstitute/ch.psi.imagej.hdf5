@@ -213,7 +213,7 @@ public class HDF5Reader implements PlugIn {
 					
 					if(selectedDatasets.isVirtualStack()){
 						logger.info("Use virtual stack");
-						stack = new VirtualStackHDF5(var);
+						stack = new VirtualStackHDF5(file, var);
 					}
 					else{
 						if(selectedDatasets.getSlice()!=null){

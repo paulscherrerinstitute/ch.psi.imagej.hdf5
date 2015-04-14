@@ -4,6 +4,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import ncsa.hdf.object.Dataset;
+import ncsa.hdf.object.h5.H5File;
 import ij.ImageStack;
 import ij.process.ByteProcessor;
 import ij.process.ColorProcessor;
@@ -18,10 +19,12 @@ public class VirtualStackHDF5 extends ImageStack {
 	
 	private int bitDepth = 0;
 	private Dataset dataset;
+	private H5File file;
 	
-	public VirtualStackHDF5(Dataset dataset){
+	public VirtualStackHDF5(H5File file, Dataset dataset){
 		super((int) dataset.getDims()[2], (int) dataset.getDims()[1]);
 		this.dataset = dataset;
+		this.file = file;
 	}
 	
 	/** Does noting. */
@@ -153,5 +156,19 @@ public class VirtualStackHDF5 extends ImageStack {
 	 */
 	public int getBitDepth() {
 		return bitDepth;
+	}
+	
+	@Override
+	protected void finalize() throws Throwable {
+		super.finalize();
+		
+		logger.info("Closing HDF5 file");
+		try{
+			file.close();
+		}
+		catch(Exception e){
+			logger.log(Level.WARNING, "Unable to close HDF5 file", e);
+		}
+		
 	}
 }

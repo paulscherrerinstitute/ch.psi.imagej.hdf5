@@ -64,6 +64,7 @@ public class SelectionPanel extends JPanel {
 		add(checkbox);
 		
 		checkBoxVirtualStack = new JCheckBox("Virtual Stack");
+		checkBoxVirtualStack.setSelected(true);
 		add(checkBoxVirtualStack);
 		
 		panel = new JPanel();
