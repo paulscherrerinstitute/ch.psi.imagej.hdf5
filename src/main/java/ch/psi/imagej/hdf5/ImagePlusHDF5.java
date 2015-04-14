@@ -11,9 +11,15 @@ public class ImagePlusHDF5 extends ImagePlus {
 	
 	
 	private static final Logger logger = Logger.getLogger(ImagePlusHDF5.class.getName());
+	private VirtualStackHDF5 stack;
 	
 	public ImagePlusHDF5(String title, ImageStack stack) {
 		super(title, stack);
+		if(stack instanceof VirtualStackHDF5){
+			logger.info("VirtualStackHDF5");
+			this.stack = (VirtualStackHDF5) stack;
+		}
+		
 	}
 	
 	@Override
@@ -49,9 +55,9 @@ public class ImagePlusHDF5 extends ImagePlus {
 			@Override
 			public void windowClosed(WindowEvent e) {
 				logger.info("Closed");
-				ImageStack stack = getStack();
-				if(stack instanceof VirtualStackHDF5){
-					((VirtualStackHDF5) stack).close();
+				
+				if(stack!=null){
+					stack.close();
 				}
 			}
 			

@@ -54,6 +54,7 @@ public class SelectionPanel extends JPanel {
 
 			}
 		});
+		list.setSelectedIndex(0);
 	    
 	    JScrollPane scroll = new JScrollPane(list);
 	    scroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
