@@ -68,7 +68,7 @@ public class HDF5Reader implements PlugIn {
 			file.open();
 
 			List<Dataset> datasets = HDF5Utilities.getDatasets(file);
-			SelectedDatasets selectedDatasets = selectDatasets(datasets);
+			DatasetSelection selectedDatasets = selectDatasets(datasets);
 
 			
 			// TODO Remove
@@ -217,19 +217,44 @@ public class HDF5Reader implements PlugIn {
 				} else if (numberOfDimensions == 3) {
 					logger.info("3D Image");
 
-					// Select what to readout
-					long[] selected = var.getSelectedDims();
-					selected[0] = dimensions[0];
-					selected[1] = dimensions[1];
-					selected[2] = dimensions[2];
+					ImageStack stack;
+					
+					if(selectedDatasets.getSlice()!=null){
+						
+						// Select what to readout
+						long[] selected = var.getSelectedDims();
+						selected[0] = 1;
+						selected[1] = dimensions[1];
+						selected[2] = dimensions[2];
+						
+						long[] start = var.getStartDims();
+						start[0] = selectedDatasets.getSlice();
 
-					Object wholeDataset = var.read();
+						Object wholeDataset = var.read();
+						
+						stack = new ImageStack((int) dimensions[2], (int) dimensions[1]);
+						int size = (int) (dimensions[1] * dimensions[2]);
+						
+//						int startIdx = selectedDatasets.getSlice() * size;
+						addSlice(stack, wholeDataset, 0, size);
+					}
+					else{
+						// Select what to readout
+						long[] selected = var.getSelectedDims();
+						selected[0] = dimensions[0];
+						selected[1] = dimensions[1];
+						selected[2] = dimensions[2];
 
-					ImageStack stack = new ImageStack((int) dimensions[2], (int) dimensions[1]);
-					int size = (int) (dimensions[1] * dimensions[2]);
-					for (int lev = 0; lev < dimensions[0]; ++lev) {
-						int startIdx = lev * size;
-						addSlice(stack, wholeDataset, startIdx, size);
+						
+						Object wholeDataset = var.read();
+
+						stack = new ImageStack((int) dimensions[2], (int) dimensions[1]);
+						int size = (int) (dimensions[1] * dimensions[2]);
+						
+						for (int lev = 0; lev < dimensions[0]; ++lev) {
+							int startIdx = lev * size;
+							addSlice(stack, wholeDataset, startIdx, size);
+						}
 					}
 
 					ImagePlus imp = new ImagePlus(filename + " " + datasetName, stack);
@@ -279,7 +304,7 @@ public class HDF5Reader implements PlugIn {
 	 * @return	List of datasets to visualize. If nothing selected the list will be empty
 	 * @throws HDF5Exception
 	 */
-	private SelectedDatasets selectDatasets(List<Dataset> datasets) throws HDF5Exception {
+	private DatasetSelection selectDatasets(List<Dataset> datasets) throws HDF5Exception {
 		
 		GenericDialog gd = new GenericDialog("Variable Name Selection");
 		gd.addMessage("Please select variables to be loaded.\n");
@@ -292,10 +317,11 @@ public class HDF5Reader implements PlugIn {
 			gd.pack();
 			gd.showDialog();
 
-			SelectedDatasets selectedDatasets = new SelectedDatasets();
+			DatasetSelection selectedDatasets = new DatasetSelection();
 			if (!gd.wasCanceled()) {
 				selectedDatasets.setDatasets(panel.getSelectedValues());
 				selectedDatasets.setGroup(panel.groupValues());
+				selectedDatasets.setSlice(panel.getSlice());
 			}
 		
 		return selectedDatasets;

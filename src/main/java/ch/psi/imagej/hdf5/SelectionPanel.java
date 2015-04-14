@@ -16,7 +16,6 @@ import javax.swing.ScrollPaneConstants;
 
 import ncsa.hdf.object.Dataset;
 import javax.swing.JTextField;
-import javax.swing.JSpinner;
 import java.awt.FlowLayout;
 
 public class SelectionPanel extends JPanel {
@@ -72,7 +71,7 @@ public class SelectionPanel extends JPanel {
 		flowLayout.setAlignment(FlowLayout.LEFT);
 		add(panel);
 		
-		lblSlice = new JLabel("Slice:");
+		lblSlice = new JLabel("Slice (3D only):");
 		panel.add(lblSlice);
 		
 		textField = new JTextField();
@@ -86,5 +85,13 @@ public class SelectionPanel extends JPanel {
 	
 	public boolean groupValues(){
 		return checkbox.isSelected();
+	}
+	
+	public Integer getSlice(){
+		String text = textField.getText();
+		if(text.matches("[0-9]+")){
+			return new Integer(text);
+		}
+		return null;
 	}
 }
