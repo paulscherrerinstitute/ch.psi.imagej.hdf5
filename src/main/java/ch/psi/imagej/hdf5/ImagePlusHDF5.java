@@ -29,32 +29,32 @@ public class ImagePlusHDF5 extends ImagePlus {
 			
 			@Override
 			public void windowOpened(WindowEvent e) {
-				logger.info("");
+//				logger.info("");
 			}
 			
 			@Override
 			public void windowIconified(WindowEvent e) {
-				logger.info("");
+//				logger.info("");
 			}
 			
 			@Override
 			public void windowDeiconified(WindowEvent e) {
-				logger.info("");
+//				logger.info("");
 			}
 			
 			@Override
 			public void windowDeactivated(WindowEvent e) {
-				logger.info("");
+//				logger.info("");
 			}
 			
 			@Override
 			public void windowClosing(WindowEvent e) {
-				logger.info("Closing");
+//				logger.info("Closing");
 			}
 			
 			@Override
 			public void windowClosed(WindowEvent e) {
-				logger.info("Closed");
+//				logger.info("Closed");
 				
 				if(stack!=null){
 					stack.close();
