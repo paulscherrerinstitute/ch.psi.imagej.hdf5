@@ -63,7 +63,7 @@ public class ImagePlusHDF5 extends ImagePlus {
 			
 			@Override
 			public void windowActivated(WindowEvent e) {
-				logger.info("");
+//				logger.info("");
 			}
 		});
 	}
