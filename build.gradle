@@ -13,7 +13,7 @@ targetCompatibility = 1.7
 
 repositories {
      mavenCentral()
-     maven { url "http://slsyoke4.psi.ch:8081/artifactory/libs-releases" }
+     maven { url "http://artifacts.psi.ch/artifactory/libs-releases" }
 }
 dependencies {
     compile group: 'hdf5', name: 'hdf', version:'2.10.0'
