@@ -1,4 +1,4 @@
-# Overview
+ # Overview
 
 ImageJ plugin for reading and writing HDF5 files.
 
@@ -79,6 +79,11 @@ cd <FIJI_HOME>
 Starting with Java 8 just the LD_LIBRARY_PATH variable need to be set. For MacOSX it is export `DYLD_LIBRARY_PATH=lib/mac64/:$DYLD_LIBRARY_PATH`.
 
 # Development
+
+To be able to run the tests and plugin from within the following arguments need to be passed:
+
+![RunSettings](RunSettings.png)
+
 To create an all in one zip file for installation in a ImageJ installation use: 
 `mvn clean compile assembly:assembly`
 

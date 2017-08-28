@@ -10,7 +10,10 @@ import ij.plugin.PlugIn;
 
 import java.io.File;
 import java.lang.reflect.Array;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -28,13 +31,23 @@ public class HDF5Reader implements PlugIn {
 	 */
 	public static void main(String[] args){
 		HDF5Reader r = new HDF5Reader();
-		r.run("");
+		r.run("path=/Users/ebner/Desktop/ open=A8_d_400N030_.h5");
+//		IJ.run("HDF5...", "/Users/ebner/Desktop/A8_d_400N030_.h5");
 	}
 	
 	/**
 	 * Main function plugin
+	 * arg is a space separated list of arguments that can be passed to the run method.
+	 * arg looks something like this: "para1=value1 para2=value2 ....."
+	 *
+	 * Supported arguments for arg:
+	 * open=&lt;path&gt;
+	 * dataset=/your/path/to/dataset
+	 *
 	 */
 	public void run(String arg) {
+
+		Map arguments = HDF5Reader.parseArguments(arg);
 
 		OpenDialog od = new OpenDialog("Open HDF5 ...", arg);
 
@@ -58,7 +71,19 @@ public class HDF5Reader implements PlugIn {
 			file.open();
 
 			List<Dataset> datasets = HDF5Utilities.getDatasets(file);
-			DatasetSelection selectedDatasets = selectDatasets(datasets);
+
+			DatasetSelection selectedDatasets = null;
+			if(arguments.containsKey("dataset")){
+				logger.info("Using automatic selection");
+				selectedDatasets = selectDatasets(datasets, arguments);
+			}
+			else{
+				logger.info("Using manual selection");
+				// Manual selection of the dataset and other parameters via a dialog
+				selectedDatasets = selectDatasets(datasets);
+			}
+
+
 			// TODO to be removed - Workaround virtual stack - keep HDF5 file open at the end 
 			close=!selectedDatasets.isVirtualStack();
 
@@ -353,6 +378,41 @@ public class HDF5Reader implements PlugIn {
 		return selectedDatasets;
 	}
 
+	private DatasetSelection selectDatasets(List<Dataset> datasets, Map<String,String> arguments) throws HDF5Exception {
+
+		GenericDialog gd = new GenericDialog("Variable Name Selection");
+		gd.addMessage("Please select variables to be loaded.\n");
+
+		SelectionPanel panel = new SelectionPanel(datasets);
+
+		gd = new GenericDialog("Variable Name Selection");
+		gd.add(panel);
+		gd.addMessage("");
+		gd.pack();
+		gd.showDialog();
+
+		DatasetSelection selectedDatasets = new DatasetSelection();
+		for(Dataset dataset: datasets){
+			if(dataset.getFullName().equals(arguments.get("dataset"))){
+				selectedDatasets.getDatasets().add(dataset);
+				break; // we only support one selection for the time being
+			}
+		}
+
+//		selectedDatasets.setGroup(panel.groupValues());
+//		selectedDatasets.setSlice(panel.getSlice());
+//		selectedDatasets.setModulo(panel.getModulo());
+
+		if(arguments.containsKey("virtualstack") && arguments.get("virtualstack").equalsIgnoreCase("false")){
+			selectedDatasets.setVirtualStack(false);
+		}
+		else{
+			selectedDatasets.setVirtualStack(true);
+		}
+
+		return selectedDatasets;
+	}
+
 
 	/**
 	 * Add slice to image stack
@@ -432,5 +492,23 @@ public class HDF5Reader implements PlugIn {
 		stack.addSlice(null, r);
 		stack.addSlice(null, g);
 		stack.addSlice(null, b);
+	}
+
+	public static Map<String,String> parseArguments(String arg){
+
+		/// ImageJ arguments look something like this: "para1=value1 para2=value2 ....."
+		Map<String,String> map = new HashMap<>();
+		arg = arg.trim();
+		for(String argument: arg.split("\\s+")){
+			String[] entry = argument.split("=");
+			if(entry.length==2) {
+				map.put(entry[0], entry[1]);
+			}
+			else{
+				// ignore
+				logger.warning("Cannot parse argument " + argument + " - Ignore");
+			}
+		}
+		return map;
 	}
 }
