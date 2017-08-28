@@ -10,10 +10,7 @@ import ij.plugin.PlugIn;
 
 import java.io.File;
 import java.lang.reflect.Array;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -31,10 +28,14 @@ public class HDF5Reader implements PlugIn {
 	 */
 	public static void main(String[] args){
 		HDF5Reader r = new HDF5Reader();
-		r.run("path=/Users/ebner/Desktop/ open=A8_d_400N030_.h5");
-//		IJ.run("HDF5...", "/Users/ebner/Desktop/A8_d_400N030_.h5");
+//		r.run("");
+		r.open("",false, "/Users/ebner/Desktop/A8_d_400N030_.h5", "/exchange/data", true);
 	}
-	
+
+	public void run(String arg) {
+		open(arg, true, null, null, true);
+	}
+
 	/**
 	 * Main function plugin
 	 * arg is a space separated list of arguments that can be passed to the run method.
@@ -45,26 +46,33 @@ public class HDF5Reader implements PlugIn {
 	 * dataset=/your/path/to/dataset
 	 *
 	 */
-	public void run(String arg) {
+	public ImageStack open(String arg, boolean interactive, String filename, String nameOfDataset, boolean virtualstack) {
 
-		Map arguments = HDF5Reader.parseArguments(arg);
+//		Map arguments = HDF5Reader.parseArguments(arg);
 
-		OpenDialog od = new OpenDialog("Open HDF5 ...", arg);
+		File tfile = null;
+		if(interactive) {
+			OpenDialog od = new OpenDialog("Open HDF5 ...", arg);
+			tfile = new File(od.getDirectory() + od.getFileName());
+			if (!tfile.exists() || !tfile.canRead()) {
+				IJ.showMessage("Cannot open file: "+tfile.getAbsolutePath());
+				return null;
+			}
 
-		
-		File tfile = new File(od.getDirectory() + od.getFileName());
-		if (!tfile.exists() || !tfile.canRead()) {
-			IJ.showMessage("Cannot open file: "+tfile.getAbsolutePath());
-			return;
+			// Overwrite filename with selected filename
+			filename = tfile.getAbsolutePath();
+
+			IJ.showStatus("Loading HDF5 File: " + filename);
+			IJ.showProgress(0.0);
 		}
-		String filename = tfile.getAbsolutePath();
-
-		IJ.showStatus("Loading HDF5 File: " + filename);
-		IJ.showProgress(0.0);
 		
 		// Read HDF5 file
 		H5File file = null;
 		boolean close = true;
+
+		List<ImageStack> stacks = new ArrayList<>();
+		ImageStack stack = null;
+
 		try {
 			file = new H5File(filename, H5File.READ);
 			file.setMaxMembers(Integer.MAX_VALUE);
@@ -73,25 +81,30 @@ public class HDF5Reader implements PlugIn {
 			List<Dataset> datasets = HDF5Utilities.getDatasets(file);
 
 			DatasetSelection selectedDatasets = null;
-			if(arguments.containsKey("dataset")){
-				logger.info("Using automatic selection");
-				selectedDatasets = selectDatasets(datasets, arguments);
-			}
-			else{
+			if(interactive){
 				logger.info("Using manual selection");
 				// Manual selection of the dataset and other parameters via a dialog
 				selectedDatasets = selectDatasets(datasets);
+			}
+			else{
+				logger.info("Using automatic selection");
+				selectedDatasets = new DatasetSelection();
+				for(Dataset dataset: datasets){
+					if(dataset.getFullName().equals(nameOfDataset)){
+						selectedDatasets.getDatasets().add(dataset);
+						break; // we only support one selection for the time being
+					}
+				}
+				selectedDatasets.setVirtualStack(virtualstack);
 			}
 
 
 			// TODO to be removed - Workaround virtual stack - keep HDF5 file open at the end 
 			close=!selectedDatasets.isVirtualStack();
 
-			
 			// TODO Remove
 			// Hack as a proof of principle
 			if(selectedDatasets.isGroup()){
-				ImageStack stack = null;
 				
 				for (Dataset var : selectedDatasets.getDatasets()) {
 					if(stack == null){
@@ -106,10 +119,11 @@ public class HDF5Reader implements PlugIn {
 				ImagePlus imp = new ImagePlus(filename, stack);
 				imp.resetDisplayRange();
 				imp.show();
-				return;
+
+				stacks.add(stack);
+				return stack; // TODO should return stacks instead of stack
 			}
-			
-			
+
 			for (Dataset var : selectedDatasets.getDatasets()) {
 
 				// Read dataset attributes and properties
@@ -136,7 +150,8 @@ public class HDF5Reader implements PlugIn {
 
 					Object wholeDataset = var.read();
 
-					ImageStack stack = new ImageStack((int) dimensions[3], (int) dimensions[2]);
+					stack = new ImageStack((int) dimensions[3], (int) dimensions[2]);
+					stacks.add(stack);
 					int stackSize = (int) (dimensions[2] * dimensions[3] * 3);
 					int singleVolumeSize = (int) (dimensions[1] * stackSize);
 					for (int volIDX = 0; volIDX < dimensions[0]; ++volIDX) {
@@ -166,7 +181,8 @@ public class HDF5Reader implements PlugIn {
 
 					Object wholeDataset = var.read();
 
-					ImageStack stack = new ImageStack((int) dimensions[2], (int) dimensions[1]);
+					stack = new ImageStack((int) dimensions[2], (int) dimensions[1]);
+					stacks.add(stack);
 					int stackSize = (int) (dimensions[1] * dimensions[2] * 3);
 					for (int lev = 0; lev < dimensions[0]; ++lev) {
 						int startIdx = lev * stackSize;
@@ -193,7 +209,8 @@ public class HDF5Reader implements PlugIn {
 
 					Object wholeDataset = var.read();
 
-					ImageStack stack = new ImageStack((int) dimensions[3], (int) dimensions[2]);
+					stack = new ImageStack((int) dimensions[3], (int) dimensions[2]);
+					stacks.add(stack);
 					int size = (int) (dimensions[2] * dimensions[3]);
 					long singleVolumeSize = dimensions[1] * size;
 					for (int volIDX = 0; volIDX < dimensions[0]; ++volIDX) {
@@ -221,7 +238,8 @@ public class HDF5Reader implements PlugIn {
 
 					Object wholeDataset = var.read();
 
-					ImageStack stack = new ImageStack((int) dimensions[1], (int) dimensions[0]);
+					stack = new ImageStack((int) dimensions[1], (int) dimensions[0]);
+					stacks.add(stack);
 					addSliceRGB(stack, wholeDataset, (int) dimensions[0], (int) dimensions[1]);
 
 					ImagePlus imp = new ImagePlus(filename + " " + datasetName, stack);
@@ -234,8 +252,6 @@ public class HDF5Reader implements PlugIn {
 				} else if (numberOfDimensions == 3) {
 					logger.info("3D Image");
 
-					ImageStack stack;
-					
 					if(selectedDatasets.isVirtualStack()){
 						logger.info("Use virtual stack");
 						stack = new VirtualStackHDF5(file, var);
@@ -303,6 +319,7 @@ public class HDF5Reader implements PlugIn {
 						}
 					}
 
+					stacks.add(stack);
 					ImagePlus imp = new ImagePlusHDF5(filename + " " + datasetName, stack);
 					imp.resetDisplayRange();
 					imp.show();
@@ -312,7 +329,8 @@ public class HDF5Reader implements PlugIn {
 					
 					Object wholeDataset = var.read();
 
-					ImageStack stack = new ImageStack((int) dimensions[1], (int) dimensions[0]);
+					stack = new ImageStack((int) dimensions[1], (int) dimensions[0]);
+					stacks.add(stack);
 					addSlice(stack, wholeDataset);
 					
 					ImagePlus imp = new ImagePlus(filename + " " + datasetName, stack);
@@ -344,6 +362,8 @@ public class HDF5Reader implements PlugIn {
 		}
 
 		IJ.showProgress(1.0);
+
+		return stack; // TODO should return stacks instead of stack
 	}
 
 	/**
@@ -377,42 +397,6 @@ public class HDF5Reader implements PlugIn {
 		
 		return selectedDatasets;
 	}
-
-	private DatasetSelection selectDatasets(List<Dataset> datasets, Map<String,String> arguments) throws HDF5Exception {
-
-		GenericDialog gd = new GenericDialog("Variable Name Selection");
-		gd.addMessage("Please select variables to be loaded.\n");
-
-		SelectionPanel panel = new SelectionPanel(datasets);
-
-		gd = new GenericDialog("Variable Name Selection");
-		gd.add(panel);
-		gd.addMessage("");
-		gd.pack();
-		gd.showDialog();
-
-		DatasetSelection selectedDatasets = new DatasetSelection();
-		for(Dataset dataset: datasets){
-			if(dataset.getFullName().equals(arguments.get("dataset"))){
-				selectedDatasets.getDatasets().add(dataset);
-				break; // we only support one selection for the time being
-			}
-		}
-
-//		selectedDatasets.setGroup(panel.groupValues());
-//		selectedDatasets.setSlice(panel.getSlice());
-//		selectedDatasets.setModulo(panel.getModulo());
-
-		if(arguments.containsKey("virtualstack") && arguments.get("virtualstack").equalsIgnoreCase("false")){
-			selectedDatasets.setVirtualStack(false);
-		}
-		else{
-			selectedDatasets.setVirtualStack(true);
-		}
-
-		return selectedDatasets;
-	}
-
 
 	/**
 	 * Add slice to image stack
