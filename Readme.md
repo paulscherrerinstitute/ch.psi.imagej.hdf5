@@ -20,6 +20,16 @@ To save to an HDF5 file use:
 File > SaveAs > HDF5
 ```
 
+## Scripting
+
+To use this plugin from the ImageJs' (python) scripting interface these lines can be used to open a dataset:
+
+```python
+from ch.psi.imagej.hdf5 import HDF5Reader
+reader = HDF5Reader()
+stack = reader.open("",False, "/Users/ebner/Desktop/A8_d_400N030_.h5", "/exchange/data_dark", True)
+```
+
 # Installation
 To be able to install this plugin ImageJ need to be run with a Java 7 or greater JVM.
 
