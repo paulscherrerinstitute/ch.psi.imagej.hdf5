@@ -46,7 +46,12 @@ public class HDF5Reader implements PlugIn {
 	 * dataset=/your/path/to/dataset
 	 *
 	 */
+
 	public ImageStack open(String arg, boolean interactive, String filename, String nameOfDataset, boolean virtualstack) {
+		return open(arg, interactive, filename, nameOfDataset, virtualstack, true);
+	}
+
+	public ImageStack open(String arg, boolean interactive, String filename, String nameOfDataset, boolean virtualstack, boolean showImage) {
 
 //		Map arguments = HDF5Reader.parseArguments(arg);
 
@@ -118,7 +123,9 @@ public class HDF5Reader implements PlugIn {
 				
 				ImagePlus imp = new ImagePlus(filename, stack);
 				imp.resetDisplayRange();
-				imp.show();
+				if(showImage) {
+					imp.show();
+				}
 
 				stacks.add(stack);
 				return stack; // TODO should return stacks instead of stack
@@ -166,7 +173,9 @@ public class HDF5Reader implements PlugIn {
 					imp = new CompositeImage(imp, CompositeImage.COMPOSITE);
 					imp.setOpenAsHyperStack(true);
 					imp.resetDisplayRange();
-					imp.show();
+					if(showImage) {
+						imp.show();
+					}
 					
 				} else if (numberOfDimensions == 4 && dimensions[3] == 3) {
 					logger.info("3D RGB Image");
@@ -194,7 +203,9 @@ public class HDF5Reader implements PlugIn {
 					imp = new CompositeImage(imp, CompositeImage.COMPOSITE);
 					imp.setOpenAsHyperStack(true);
 					imp.resetDisplayRange();
-					imp.show();
+					if(showImage) {
+						imp.show();
+					}
 					
 				} else if (numberOfDimensions == 4) {
 					logger.info("4D Image (HyperVolume)");
@@ -224,7 +235,9 @@ public class HDF5Reader implements PlugIn {
 					imp.setDimensions(1, (int) dimensions[1], (int) dimensions[0]);
 					imp.setOpenAsHyperStack(true);
 					imp.resetDisplayRange();
-					imp.show();
+					if(showImage) {
+						imp.show();
+					}
 					
 				} else if (numberOfDimensions == 3 && dimensions[2] == 3) {
 					logger.info("2D RGB Image");
@@ -247,7 +260,9 @@ public class HDF5Reader implements PlugIn {
 					imp = new CompositeImage(imp, CompositeImage.COMPOSITE);
 					imp.setOpenAsHyperStack(true);
 					imp.resetDisplayRange();
-					imp.show();
+					if(showImage) {
+						imp.show();
+					}
 					
 				} else if (numberOfDimensions == 3) {
 					logger.info("3D Image");
@@ -322,7 +337,9 @@ public class HDF5Reader implements PlugIn {
 					stacks.add(stack);
 					ImagePlus imp = new ImagePlusHDF5(filename + " " + datasetName, stack);
 					imp.resetDisplayRange();
-					imp.show();
+					if(showImage) {
+						imp.show();
+					}
 					
 				} else if (numberOfDimensions == 2) {
 					logger.info("2D Image");
@@ -335,7 +352,9 @@ public class HDF5Reader implements PlugIn {
 					
 					ImagePlus imp = new ImagePlus(filename + " " + datasetName, stack);
 					imp.resetDisplayRange();
-					imp.show();
+					if(showImage) {
+						imp.show();
+					}
 					
 				} else {
 					IJ.showStatus("Variable Dimension " + numberOfDimensions + " not supported");
