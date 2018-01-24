@@ -99,6 +99,8 @@ To create an all in one zip file for installation in a ImageJ installation use:
 
 The zip file contains an all in one jar as well as the required native libraries for Windows, Linux and Mac OS X.
 
+Note: to be able to build the package you need to have access to the PSI artifact server. Therefore this only works within the PSI networks and if you have a certain maven configuration. An example Maven settings.xml that you can copy to `~/.m2/settings.xml` is located [here](settings.xml).
+
 # Acknowledgements
 This project was inspired by the ImageJ HDF Plugin of Matthias Schlachter Chair of Pattern Recognition and Image Processing, University of Freiburg, Germany ( https://code.google.com/p/imagej-hdf ) . 
 It is a complete rewrite of the code with the focus on efficiency and maintainability
