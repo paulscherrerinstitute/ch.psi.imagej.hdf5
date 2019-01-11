@@ -2,9 +2,26 @@
 
 ImageJ plugin for reading and writing HDF5 files.
 
-For 3D datasets an individual slice can be selected for visualization.
-Also, especially for very big datasets only every x-th slice can be selected
-for visualization. This can be done by either specifying a number, e.g. `10` (for the slice 10) or a number with a preceding %, e.g. `%10` (for every 10th image). Indexing starts at 0.
+Upon opening an HDF5 file, an import dialog lists the available image data sets
+and allows the selection of one or multiple data sets to be opened:
+
+![Import dialog to select datasets to be opened](hdf5plugin_select_datasets.png)
+
+For 3D datasets, the whole data set is read into an image stack by default.
+However, only individual slices can also be selected for visualization.
+Furthermore, especially for very big datasets, only every n-th slice can be
+selected for visualization. This can be done by either specifying a number,
+e.g. `10` (for the slice 10) or a number with a preceding %, e.g. `%10` (for
+every 10th image). Indexing starts at 0. Another useful feature when working
+with lage data sets is the option to load the data into a virtual image stack.
+
+Note that the Fiji distribution of ImageJ comes with an hdf5 plugin already
+installed out of the box. This packaged hdf5 plugin (HDF5_Vibez) has some great
+features, and may be all you need. However, it does not allow one to load large
+image arrays as virtual stacks, and thus often results in "out of memory"
+errors when working with large data sets. In those cases, the PSI plugin for
+reading and writing HDF5 files described here might be your preferred choice.
+
 
 # Usage
 
@@ -31,7 +48,51 @@ stack = reader.open("",False, "/Users/ebner/Desktop/A8_d_400N030_.h5", "/exchang
 ```
 
 # Installation
-To be able to install this plugin ImageJ need to be run with a Java 7 or greater JVM.
+
+## Prerequisites
+To be able to install this plugin, ImageJ need to be run with a Java 7 or
+greater JVM.
+
+At the time of writing, the latest Fiji distribution of ImageJ comes bundled
+with Java 8 by default, while older versions of ImageJ and Fiji are still using
+Java 6. ImageJ itself (or more precisely the current ImageJ2 flavor of ImageJ)
+seems to still be in a transitionary phase from Java 6 to Java 8 and does not
+yet provide the full Java 8 functionality by default. The simplest option is
+therefore to use a newer Fiji version which comes bundled with Java 8 for the
+installation of this hdf5 plugin.
+
+The one caveat about using Fiji is that one needs to disable the pre-packaged
+hdf5 plugin included in the distribution before installing this plugin.
+
+In the following, the installation procedure is detailed for a Fiji
+installation with Java 8 included and also for older installations based on
+Java 6.
+
+## Checking the Java version
+
+You can check whether Java-8 is included with Fiji as follows:
+
+* Open the update dialog from the menu via Fiji > Help > Update...
+* Wait for the application to finish checking for new updates
+* In the ImageJ Updater Window, click on "Advanced Mode"
+* Type java-8 into the "Search" field.
+* If you see an entry lib/Java-8 in the results box below, then Java 8 is ready
+  to be used on your system (see screenshots below). 
+
+
+## Download the source
+
+Download latest HDF5 ImageJ plugin from
+[releases](https://github.com/paulscherrerinstitute/ch.psi.imagej.hdf5/releases).
+
+
+## Installation for Fiji with Java 8
+
+
+
+
+## Installation for older versions of ImageJ/Fiji with Java 6
+
 
 * Download latest HDF5 ImageJ plugin from [releases](https://github.com/paulscherrerinstitute/ch.psi.imagej.hdf5/releases).
 
