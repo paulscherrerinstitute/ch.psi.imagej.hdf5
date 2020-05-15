@@ -202,6 +202,12 @@ java -Djava.library.path=./lib/linux64 -Xmx3048m -jar ij.jar
 The `Xmx` setting is quite random it depends on how big hdf5 files you are
 planning to open.
 
+## Windows
+
+As the provided zip currently does not provide the Windows binaries for HDF5, the simplest way 
+to get things working is to install HDFView (https://www.hdfgroup.org/downloads/hdfview/) and 
+then opening ImageJ. 
+
 
 # Development
 
