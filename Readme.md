@@ -227,6 +227,14 @@ artifact server. Therefore this only works within the PSI networks and if you
 have a certain maven configuration. An example Maven settings.xml that you can
 copy to `~/.m2/settings.xml` is located [here](settings.xml).
 
+## Dependencies
+The java HDF5 libary as well as the precompiled code we downloaded and copied from:
+https://wiki-bsse.ethz.ch/display/JHDF5/Download+Page
+All the necessary jars where copied from there into the /lib directory.
+
+The files in the package hdf.objects in this repository were copied from the hdfviewer source code. We were not able to find a jar that contained them.
+ 
+
 # Acknowledgements
 This project was inspired by the ImageJ HDF Plugin of Matthias Schlachter Chair
 of Pattern Recognition and Image Processing, University of Freiburg, Germany (
