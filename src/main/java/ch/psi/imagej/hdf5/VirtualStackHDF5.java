@@ -3,8 +3,8 @@ package ch.psi.imagej.hdf5;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import ncsa.hdf.object.Dataset;
-import ncsa.hdf.object.h5.H5File;
+import hdf.object.Dataset;
+import hdf.object.h5.H5File;
 import ij.ImageStack;
 import ij.process.ByteProcessor;
 import ij.process.ColorProcessor;

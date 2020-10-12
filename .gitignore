@@ -4,3 +4,4 @@ imagej.hdf5.iml
 /target
 .gradle
 build
+out/

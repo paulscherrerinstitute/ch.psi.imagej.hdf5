@@ -1,6 +1,12 @@
 package ch.psi.imagej.hdf5;
 
 
+import hdf.object.Dataset;
+import hdf.object.Datatype;
+import hdf.object.FileFormat;
+import hdf.object.Group;
+import hdf.object.h5.H5Datatype;
+import hdf.object.h5.H5File;
 import ij.*;
 import ij.io.*;
 import ij.plugin.filter.PlugInFilter;
@@ -10,9 +16,9 @@ import ij.gui.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import ncsa.hdf.object.*; // the common object package
-import ncsa.hdf.object.h5.*; // the HDF5 implementation
-import ncsa.hdf.hdf5lib.exceptions.HDF5Exception;
+//import hdf.object.*; // the common object package
+//import hdf.object.h5.*; // the HDF5 implementation
+import hdf.hdf5lib.exceptions.HDF5Exception;
 
 public class HDF5Writer implements PlugInFilter {
 
@@ -60,18 +66,22 @@ public class HDF5Writer implements PlugInFilter {
 		int imgColorType = imp.getType();
 
 		Datatype type = null;
-		if (imgColorType == ImagePlus.GRAY8) {
-			logger.info("   bit depth: " + imgColorDepth + ", type: GRAY8");
-			type = new H5Datatype(Datatype.CLASS_CHAR, Datatype.NATIVE, Datatype.NATIVE, Datatype.SIGN_NONE);
-		} else if (imgColorType == ImagePlus.GRAY16) {
-			logger.info("   bit depth: " + imgColorDepth + ", type: GRAY16");
-			type = new H5Datatype(Datatype.CLASS_INTEGER, 2, Datatype.NATIVE, Datatype.SIGN_NONE);
-		} else if (imgColorType == ImagePlus.GRAY32) {
-			logger.info("   bit depth: " + imgColorDepth + ", type: GRAY32");
-			type = new H5Datatype(Datatype.CLASS_FLOAT, Datatype.NATIVE, Datatype.NATIVE, -1);
-		} else if (imgColorType == ImagePlus.COLOR_RGB) {
-			logger.info("   bit depth: " + imgColorDepth + ", type: COLOR_RGB");
-			type = new H5Datatype(Datatype.CLASS_CHAR, Datatype.NATIVE, Datatype.NATIVE, Datatype.SIGN_NONE);
+		try {
+			if (imgColorType == ImagePlus.GRAY8) {
+				logger.info("   bit depth: " + imgColorDepth + ", type: GRAY8");
+				type = new H5Datatype(Datatype.CLASS_CHAR, Datatype.NATIVE, Datatype.NATIVE, Datatype.SIGN_NONE);
+			} else if (imgColorType == ImagePlus.GRAY16) {
+				logger.info("   bit depth: " + imgColorDepth + ", type: GRAY16");
+				type = new H5Datatype(Datatype.CLASS_INTEGER, 2, Datatype.NATIVE, Datatype.SIGN_NONE);
+			} else if (imgColorType == ImagePlus.GRAY32) {
+				logger.info("   bit depth: " + imgColorDepth + ", type: GRAY32");
+				type = new H5Datatype(Datatype.CLASS_FLOAT, Datatype.NATIVE, Datatype.NATIVE, -1);
+			} else if (imgColorType == ImagePlus.COLOR_RGB) {
+				logger.info("   bit depth: " + imgColorDepth + ", type: COLOR_RGB");
+				type = new H5Datatype(Datatype.CLASS_CHAR, Datatype.NATIVE, Datatype.NATIVE, Datatype.SIGN_NONE);
+			}
+		} catch (Exception e){
+			throw new RuntimeException("Unable to create dataset", e);
 		}
 
 		if (imp.getOpenAsHyperStack() || imp.isHyperStack()) {

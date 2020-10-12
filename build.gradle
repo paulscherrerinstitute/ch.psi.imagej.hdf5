@@ -2,7 +2,7 @@ apply plugin: 'java'
 //apply plugin: 'maven'
 
 group = 'ch.psi'
-version = '0.12.0'
+version = '0.13.0'
 
 description = """"""
 
@@ -10,10 +10,13 @@ sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
 
-
 repositories {
-     mavenCentral()
-     maven { url "http://artifacts.psi.ch/artifactory/libs-releases" }
+    mavenCentral()
+    maven { url "http://artifacts.psi.ch/artifactory/libs-releases" }
+    maven { url "http://maven.imagej.net/content/repositories/public/" }
+    flatDir {
+        dirs 'lib'
+    }
 }
 
 // define a provided scope
@@ -24,14 +27,20 @@ configurations {
 
 dependencies {
 
-    compile group: 'hdf5', name: 'hdf', version:'2.10.0'
-    compile group: 'hdf5', name: 'hdfobj', version:'2.10.0'
-    compile group: 'hdf5', name: 'hdf5', version:'2.10.0'
-    compile group: 'hdf5', name: 'hdf5obj', version:'2.10.0'
-    compile group: 'org.slf4j', name: 'slf4j-api', version:'1.7.6'
-    testCompile group: 'junit', name: 'junit', version:'4.11'
+    compile name: 'sis-jhdf5-19.04.0'
+    compile name: 'sis-base-18.09.0'
+    compile name: 'commons-io-2.6'
+//    compile name: 'sis-base-18.09.0'
+//    compile group: 'cisd', name: 'jhdf5', version: '14.12.6'
+//    compile group: 'hdf5', name: 'hdf', version:'2.10.0'
+//    compile group: 'hdf5', name: 'hdfobj', version:'2.10.0'
+//    compile group: 'hdf5', name: 'hdf5', version:'2.10.0'
+//    compile group: 'hdf5', name: 'hdf5obj', version:'2.10.0'
+    compile group: 'org.slf4j', name: 'slf4j-api', version: '1.7.6'
+    testCompile group: 'junit', name: 'junit', version: '4.11'
 
-    provided group: 'net.imagej', name: 'ij', version:'1.53e'
+
+    provided group: 'net.imagej', name: 'ij', version: '1.53e'
 }
 
 task fatJar(type: Jar) {
@@ -41,12 +50,11 @@ task fatJar(type: Jar) {
 //                'Main-Class': 'ch.psi.caview.CaView'
 //    }
     archiveBaseName = 'HDF5_Viewer'
-    from { (configurations.compile- configurations.provided).collect { it.isDirectory() ? it : zipTree(it) } }
+    from { (configurations.compile - configurations.provided).collect { it.isDirectory() ? it : zipTree(it) } }
     with jar
-//    { exclude group: "net.imagej", name:'ij'}
 }
-//
-//task distributionZip(type: Zip, dependsOn: [jar]) {
+
+//task distributionZip(type: Zip, dependsOn: [fatJar]) {
 //    baseName "${project.group}-jhdf5"
 //
 //    from('targets/dist') {

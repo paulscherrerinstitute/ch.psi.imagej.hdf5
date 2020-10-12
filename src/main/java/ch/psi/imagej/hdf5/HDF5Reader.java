@@ -1,5 +1,9 @@
 package ch.psi.imagej.hdf5;
 
+import hdf.hdf5lib.exceptions.HDF5Exception;
+import hdf.object.Dataset;
+import hdf.object.Datatype;
+import hdf.object.h5.H5File;
 import ij.IJ;
 import ij.ImagePlus;
 import ij.CompositeImage;
@@ -13,10 +17,6 @@ import java.lang.reflect.Array;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import ncsa.hdf.object.*;
-import ncsa.hdf.object.h5.*;
-import ncsa.hdf.hdf5lib.exceptions.HDF5Exception;
 
 public class HDF5Reader implements PlugIn {
 	
@@ -139,7 +139,7 @@ public class HDF5Reader implements PlugIn {
 				int numberOfDimensions = var.getRank();
 				long[] dimensions= var.getDims();
 
-				logger.info("Reading dataset: " + datasetName + " Dimensions: " + numberOfDimensions + " Type: " + datatype.getDatatypeDescription());
+				logger.info("Reading dataset: " + datasetName + " Dimensions: " + numberOfDimensions + " Type: " + datatype.getDescription());
 
 
 				// Read dataset

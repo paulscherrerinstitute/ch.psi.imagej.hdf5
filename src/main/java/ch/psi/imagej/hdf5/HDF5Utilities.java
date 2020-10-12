@@ -11,40 +11,40 @@ import java.util.regex.Pattern;
 
 import javax.swing.tree.DefaultMutableTreeNode;
 
-import ncsa.hdf.object.Attribute;
-import ncsa.hdf.object.Dataset;
-import ncsa.hdf.object.FileFormat;
-import ncsa.hdf.object.Group;
-import ncsa.hdf.object.HObject;
-import ncsa.hdf.object.h5.H5File;
+import hdf.object.Attribute;
+import hdf.object.Dataset;
+import hdf.object.FileFormat;
+import hdf.object.Group;
+import hdf.object.HObject;
+import hdf.object.h5.H5File;
 
 public class HDF5Utilities {
 	
 	private static final Logger logger = Logger.getLogger(HDF5Utilities.class.getName());
 	
-	/**
-	 * Get attributes from object
-	 * @param object	Object to retrieve the attributes from
-	 * @return			Map of attributes or null if an error occurred while retrieving the attributes or the passed object is null
-	 */
-	public static  Map<String,Attribute> getAttributes(HObject object) {
-		Objects.requireNonNull(object);
-
-		Map<String, Attribute> attributes = new HashMap<>();
-		try{
-			for(Object m: object.getMetadata()){
-				if(m instanceof Attribute){
-					attributes.put(((Attribute) m).getName(), (Attribute) m);
-				}
-			}
-		}
-		catch(Exception e){
-			logger.warning("Unable to retrieve metadata from object");
-			return null;
-		}
-		
-		return attributes;
-	}
+//	/**
+//	 * Get attributes from object
+//	 * @param object	Object to retrieve the attributes from
+//	 * @return			Map of attributes or null if an error occurred while retrieving the attributes or the passed object is null
+//	 */
+//	public static  Map<String,Attribute> getAttributes(HObject object) {
+//		Objects.requireNonNull(object);
+//
+//		Map<String, Attribute> attributes = new HashMap<>();
+//		try{
+//			for(Object m: object.getMetadata()){
+//				if(m instanceof Attribute){
+//					attributes.put(((Attribute) m).getName(), (Attribute) m);
+//				}
+//			}
+//		}
+//		catch(Exception e){
+//			logger.warning("Unable to retrieve metadata from object");
+//			return null;
+//		}
+//
+//		return attributes;
+//	}
 	
 	
 	/**
@@ -85,7 +85,7 @@ public class HDF5Utilities {
 	 * @return
 	 */
 	public static Group createGroup( FileFormat file, String groupName) {
-		return createGroup(file, (Group) ((DefaultMutableTreeNode) file.getRootNode()).getUserObject(),  groupName);
+		return createGroup(file, (Group) file.getRootObject(),  groupName);
 	}
 	
 	/**
@@ -100,7 +100,7 @@ public class HDF5Utilities {
 		Objects.requireNonNull(groupName);
 
 		if (group == null){
-			group = (Group) ((DefaultMutableTreeNode) file.getRootNode()).getUserObject();
+			group = (Group) file.getRootObject();
 		}
 
 		Group ngroup = group;
@@ -130,7 +130,7 @@ public class HDF5Utilities {
 	 * @return
 	 */
 	public static  List<Dataset> getDatasets(H5File file) {
-		Group rootNode = (Group) ((javax.swing.tree.DefaultMutableTreeNode) file.getRootNode()).getUserObject();
+		Group rootNode = (Group) file.getRootObject();
 		List<Dataset> datasets = getDatasets(rootNode);
 		return datasets;
 	}

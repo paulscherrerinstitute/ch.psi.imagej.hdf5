@@ -14,7 +14,7 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.ScrollPaneConstants;
 
-import ncsa.hdf.object.Dataset;
+import hdf.object.Dataset;
 import javax.swing.JTextField;
 import java.awt.FlowLayout;
 

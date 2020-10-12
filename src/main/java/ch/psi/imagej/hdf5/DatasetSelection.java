@@ -3,7 +3,7 @@ package ch.psi.imagej.hdf5;
 import java.util.ArrayList;
 import java.util.List;
 
-import ncsa.hdf.object.Dataset;
+import hdf.object.Dataset;
 
 public class DatasetSelection {
 
