@@ -29,7 +29,7 @@ public class HDF5Reader implements PlugIn {
 	public static void main(String[] args){
 		HDF5Reader r = new HDF5Reader();
 //		r.run("");
-		r.open("",false, "/Users/ebner/Desktop/pollen.h5", "/t0/channel0", true);
+		r.open("",false, "pollen.h5", "/t0/channel0", true);
 	}
 
 	public void run(String arg) {

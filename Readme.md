@@ -43,8 +43,12 @@ stack = reader.open("",False, "/Users/ebner/Desktop/A8_d_400N030_.h5", "/exchang
 
 # Installation
 
-## Prerequisites
-To be able to install this plugin, ImageJ needs to be run with a Java 7 or
+All you need is to download the latest HDF5 ImageJ plugin from [releases](https://github.com/paulscherrerinstitute/ch.psi.imagej.hdf5/releases) and copy the jar into the `plugins` directory of ImageJ. After this you should be able to simply start ImageJ and use the Plugin.
+
+
+# Troubleshooting
+### Prerequisites
+To be able to run this plugin, ImageJ needs to be run with a Java 8 or
 greater JVM.
 
 At the time of writing, the latest Fiji distribution of ImageJ comes bundled
@@ -62,7 +66,7 @@ In the following, the installation procedure is detailed for a Fiji
 installation with Java 8 included and also for older installations based on
 Java 6.
 
-## Checking the Java version
+### Checking the Java version
 
 You can check whether Java-8 is included with Fiji as follows:
 
@@ -76,15 +80,10 @@ You can check whether Java-8 is included with Fiji as follows:
 ![ImageJ Updater Advanced Mode](ImageJ_Updater_AdvancedMode.png)
 ![ImageJ Updater Search Java 8](ImageJ_Updater_search_java8.png)
 
-## Downloading the source
 
-Download latest HDF5 ImageJ plugin from
-[releases](https://github.com/paulscherrerinstitute/ch.psi.imagej.hdf5/releases).
+### Installation for Fiji with Java 8
 
-
-## Installation for Fiji with Java 8
-
-### Deactivate the distributed hdf5 plugin
+#### Deactivate the distributed hdf5 plugin
 
 As mentioned previously, unfortunately the standard hdf5 plugin (HDF5_Vibez) of
 Fiji interferes with the PSI plugin. You will be able to tell which plugin is
@@ -109,16 +108,11 @@ To disable the standard hdf5 plugin, follow these steps.
 
 ### Install the PSI hdf5 plugin
 
-The installation of the plugin essentially only requires one to add the
-contents of the downloaded source archive into the `plugins` and `lib`
-directories inside the Fiji installation directory. Follow these steps:
+The installation of the plugin essentially only requires one to add the downloaded jar into the `plugins`
+directory inside the Fiji installation directory. Follow these steps:
 
 * Locate the installation directory of the Fiji application (`FIJI_DIR`).
-* Unpack the contents of the downloaded source file into `FIJI_DIR`:
-    * Windows: Right-click the zip file with the source and select "Extract
-      to...", then navigate to `FIJI_DIR`.
-    * Linux: `unzip <Source.zip> <FIJI_DIR>`
-    * macOS: `unzip <Source.zip> <FIJI_DIR>`
+* Copy the downloaded jar file file into `FIJI_DIR/plugins`
 * Close any running instances of the Fiji applications, then reopen Fiji.
 * Try to import an hdf5 file: `Fiji > File > Import > HDF5...`.
     * If the installation of the pluging was sucessful, the file import dialog 
@@ -174,63 +168,36 @@ done as follows:
 
 ```
 cd <FIJI_HOME>
-<fiji> --java-home /usr/lib/jvm/jre-1.7.0-openjdk.x86_64 -Djava.library.path=lib/linux64
+<fiji> --java-home /usr/lib/jvm/jre-1.8.0-openjdk.x86_64
 ```
-
-Starting with Java 8 just the LD_LIBRARY_PATH variable need to be set. For
-MacOSX it is `export DYLD_LIBRARY_PATH=lib/mac64/:$DYLD_LIBRARY_PATH`.
 
 
 # Usage
 
 For normal usage, you should just be able to open Fiji/ImageJ as usual and
-start using the hdf5 plugin. Below are some hints for advanved usage,
+start using the hdf5 plugin. Below are some hints for advanced usage,
 specifying the amount of memory to be used, etc.
 
-## Mac OS X
-
 ```
-java -Djava.library.path=./lib/mac64 -Xmx3048m -jar ImageJ64.app/Contents/Resources/Java/ij.jar
+java -Xmx3048m -jar ij.jar
 ```
 
-## Linux
-
-```
-java -Djava.library.path=./lib/linux64 -Xmx3048m -jar ij.jar
-```
-
-The `Xmx` setting is quite random it depends on how big hdf5 files you are
+The `Xmx` setting is quite "random" it depends on how big hdf5 files you are
 planning to open.
-
-## Windows
-
-As the provided zip currently does not provide the Windows binaries for HDF5, the simplest way 
-to get things working is to install HDFView (https://www.hdfgroup.org/downloads/hdfview/) and 
-then opening ImageJ. 
 
 
 # Development
 
-To be able to run the tests and plugin from within the following arguments need
-to be passed:
 
-![RunSettings](RunSettings.png)
+To create an all in one jar file for installation in a ImageJ installation use:
+`./gradlew clean fatJar`
 
-To create an all in one zip file for installation in a ImageJ installation use:
-`mvn clean compile assembly:assembly`
+The jar file is an all in one jar including all required native libraries for Windows, Linux and Mac OS X.
 
-The zip file contains an all in one jar as well as the required native
-libraries for Windows, Linux and Mac OS X.
-
-Note: to be able to build the package you need to have access to the PSI
-artifact server. Therefore this only works within the PSI networks and if you
-have a certain maven configuration. An example Maven settings.xml that you can
-copy to `~/.m2/settings.xml` is located [here](settings.xml).
 
 ## Dependencies
-The java HDF5 libary as well as the precompiled code we downloaded and copied from:
-https://wiki-bsse.ethz.ch/display/JHDF5/Download+Page
-All the necessary jars where copied from there into the /lib directory.
+The java HDF5 libary as well as the precompiled code we downloaded and copied from: https://wiki-bsse.ethz.ch/display/JHDF5/Download+Page 
+All the necessary jars where copied from there into the `/lib` directory.
 
 The files in the package hdf.objects in this repository were copied from the hdfviewer source code. We were not able to find a jar that contained them.
  
