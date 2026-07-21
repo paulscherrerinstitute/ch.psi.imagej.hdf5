@@ -315,21 +315,24 @@ public class HDF5Reader implements PlugIn {
 							}
 						}
 						else{
-							// Select what to readout
-							long[] selected = var.getSelectedDims();
-							selected[0] = dimensions[0];
-							selected[1] = dimensions[1];
-							selected[2] = dimensions[2];
-	
-							
-							Object wholeDataset = var.read();
-	
+							logger.info("Read whole stack slice by slice");
+							// Read the dataset one slice at a time, since the whole
+							// dataset may contain more elements than fit in a Java
+							// int-indexed array (Integer.MAX_VALUE limit).
 							stack = new ImageStack((int) dimensions[2], (int) dimensions[1]);
 							int size = (int) (dimensions[1] * dimensions[2]);
-							
+
 							for (int lev = 0; lev < dimensions[0]; ++lev) {
-								int startIdx = lev * size;
-								addSlice(stack, wholeDataset, startIdx, size);
+								long[] selected = var.getSelectedDims();
+								selected[0] = 1;
+								selected[1] = dimensions[1];
+								selected[2] = dimensions[2];
+
+								long[] start = var.getStartDims();
+								start[0] = lev;
+
+								Object sliceData = var.read();
+								addSlice(stack, sliceData, 0, size);
 							}
 						}
 					}
